@@ -21,7 +21,7 @@ import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class QRScannerWindow {
+public class    QRScannerWindow {
 
     public interface QRScanListener {
         void onQRScanned(String qrPayload);
