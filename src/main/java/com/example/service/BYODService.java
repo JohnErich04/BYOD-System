@@ -6,13 +6,16 @@ import com.google.zxing.*;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import java.nio.file.FileSystems;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BYODService {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/byod_system_db";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/byod_db";
     private static final String DB_USER = "root";
     private static final String DB_PASS = "";
 
-    // Returns "VALID" or error message — reuse RegistrationValidator as-is
     public String validate(String sid, String fn, String ln, String contact, String yearSec) {
         return RegistrationValidator.validate(sid, fn, ln, contact, yearSec);
     }
@@ -29,15 +32,9 @@ public class BYODService {
         }
     }
 
-    public String generateQR(String payload, String studentId, String outputDir) throws Exception {
-        String path = outputDir + File.separator + "QR_" + studentId + ".png";
-        BitMatrix matrix = new MultiFormatWriter().encode(payload, BarcodeFormat.QR_CODE, 400, 400);
-        MatrixToImageWriter.writeToPath(matrix, "PNG", FileSystems.getDefault().getPath(path));
-        return path;
-    }
-
+    // NEW: Explicitly updates a student's active logs to set an Egress timestamp
     public void updateEgress(String sid) throws Exception {
-        String sql = "UPDATE student_device_logs SET egress_time = CURRENT_TIMESTAMP WHERE student_id = ? AND egress_time IS NULL LIMIT 1";
+        String sql = "UPDATE student_device_logs SET egress_time = CURRENT_TIMESTAMP WHERE student_id = ? AND egress_time IS NULL ORDER BY ingress_time DESC LIMIT 1";
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, sid);
@@ -45,22 +42,195 @@ public class BYODService {
         }
     }
 
-    // Returns list of log rows for MonitoringController
-    public java.util.List<Object[]> fetchLogs() throws Exception {
-        java.util.List<Object[]> logs = new java.util.ArrayList<>();
-        String sql = "SELECT id, student_id, last_name, first_name, device_type, ingress_time, egress_time FROM student_device_logs ORDER BY ingress_time DESC";
+    // NEW: Adds a clean new Ingress log item for an existing student context
+    public void updateIngress(String sid, String studentName, String brandModel) throws Exception {
+        String[] nameParts = studentName.split(", ");
+        String ln = nameParts[0];
+        String fn = nameParts.length > 1 ? nameParts[1] : "";
+
+        String sql = "INSERT INTO student_device_logs (student_id, last_name, first_name, brand_model, ingress_time, egress_time) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)";
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sid);
+            ps.setString(2, ln);
+            ps.setString(3, fn);
+            ps.setString(4, brandModel);
+            ps.executeUpdate();
+        }
+    }
+
+    public List<Object[]> fetchLogs() throws Exception {
+        List<Object[]> logs = new ArrayList<>();
+        String sql = "SELECT log_id, student_id, last_name, first_name, brand_model, ingress_time, egress_time FROM student_device_logs ORDER BY ingress_time DESC";
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 logs.add(new Object[]{
-                        rs.getInt("id"), rs.getString("student_id"),
+                        rs.getInt("log_id"),
+                        rs.getString("student_id"),
                         rs.getString("last_name") + ", " + rs.getString("first_name"),
-                        rs.getString("device_type"), rs.getString("ingress_time"),
+                        rs.getString("brand_model"),
+                        rs.getString("ingress_time"),
                         rs.getString("egress_time")
                 });
             }
         }
         return logs;
+    }
+
+    // NEW: Gathers analytical numbers using standard dynamic SQL evaluations
+    public Map<String, Integer> fetchDashboardMetrics() throws Exception {
+        Map<String, Integer> metrics = new HashMap<>();
+
+        String sql = "SELECT " +
+                "  (SELECT COUNT(DISTINCT student_id) FROM student_device_logs) as total_students, " +
+                "  (SELECT COUNT(*) FROM student_device_logs) as total_devices, " +
+                "  (SELECT COUNT(*) FROM student_device_logs WHERE egress_time IS NULL) as devices_inside, " +
+                "  (SELECT COUNT(*) FROM student_device_logs WHERE DATE(ingress_time) = CURRENT_DATE) as ingress_today, " +
+                "  (SELECT COUNT(*) FROM student_device_logs WHERE DATE(egress_time) = CURRENT_DATE) as egress_today";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                metrics.put("totalStudents", rs.getInt("total_students"));
+                metrics.put("totalDevices", rs.getInt("total_devices"));
+                metrics.put("devicesInside", rs.getInt("devices_inside"));
+                metrics.put("ingressToday", rs.getInt("ingress_today"));
+                metrics.put("egressToday", rs.getInt("egress_today"));
+            }
+        }
+        return metrics;
+    }
+
+    public String generateQR(String payload, String studentId, String outputDir) throws Exception {
+        String path = outputDir + File.separator + "QR_" + studentId + ".png";
+        BitMatrix matrix = new MultiFormatWriter().encode(payload, BarcodeFormat.QR_CODE, 400, 400);
+        MatrixToImageWriter.writeToPath(matrix, "PNG", FileSystems.getDefault().getPath(path));
+        return path;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ── REPORT GENERATION METRIC QUERIES FOR REPORTSCONTROLLER ────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * Pulls the count of hardware grouped by device type from student_device_logs.
+     */
+    public Map<String, Integer> fetchInventoryBreakdown() {
+        Map<String, Integer> breakdown = new HashMap<>();
+        breakdown.put("Laptop", 0);
+        breakdown.put("Tablet", 0);
+        breakdown.put("Smartphone", 0);
+        breakdown.put("Others", 0);
+
+        String sql = "SELECT device_type, COUNT(*) as count FROM student_device_logs WHERE device_type IS NOT NULL GROUP BY device_type";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                String type = rs.getString("device_type");
+                int count = rs.getInt("count");
+
+                if (type != null) {
+                    if (type.equalsIgnoreCase("Laptop")) breakdown.put("Laptop", count);
+                    else if (type.equalsIgnoreCase("Tablet")) breakdown.put("Tablet", count);
+                    else if (type.equalsIgnoreCase("Smartphone") || type.equalsIgnoreCase("Mobile")) breakdown.put("Smartphone", count);
+                    else breakdown.put("Others", breakdown.get("Others") + count);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error pulling inventory breakdown: " + e.getMessage());
+        }
+        return breakdown;
+    }
+
+    /**
+     * Fetches all registered student profiles for the reports master table list.
+     */
+    public List<String[]> fetchRegisteredStudentsList() {
+        List<String[]> students = new ArrayList<>();
+
+        String sql = "SELECT DISTINCT student_id, first_name, last_name, course_program, device_type, brand_model " +
+                "FROM student_device_logs WHERE student_id IS NOT NULL ORDER BY last_name ASC";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                String fullName = rs.getString("first_name") + " " + rs.getString("last_name");
+                students.add(new String[]{
+                        fullName,
+                        rs.getString("student_id"),
+                        rs.getString("course_program") != null ? rs.getString("course_program") : "N/A",
+                        rs.getString("device_type") != null ? rs.getString("device_type") : "Unknown",
+                        rs.getString("brand_model") != null ? rs.getString("brand_model") : "N/A"
+                });
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching reporting students list: " + e.getMessage());
+        }
+        return students;
+    }
+
+    /**
+     * Queries the database dynamically based on active filtering criteria to generate a raw CSV payload.
+     */
+    public List<String[]> fetchFilteredExportData(String courseFilter, boolean lap, boolean tab, boolean mob, boolean oth) {
+        List<String[]> data = new ArrayList<>();
+        // Construct dynamic conditions based on user UI selection check-boxes
+        List<String> types = new ArrayList<>();
+        if (lap) types.add("'Laptop'");
+        if (tab) types.add("'Tablet'");
+        if (mob) {
+            types.add("'Smartphone'");
+            types.add("'Mobile'");
+        }
+        if (oth) types.add("'Others'");
+        StringBuilder sql = new StringBuilder(
+                "SELECT student_id, last_name, first_name, year_section, course_program, contact_number, device_type, brand_model, color_description, ingress_time, egress_time " +
+                        "FROM student_device_logs WHERE 1=1"
+        );
+
+        if (courseFilter != null && !courseFilter.isBlank()) {
+            sql.append(" AND course_program LIKE ?");
+        }
+
+        if (!types.isEmpty()) {
+            sql.append(" AND device_type IN (").append(String.join(",", types)).append(")");
+        }
+
+        sql.append(" ORDER BY ingress_time DESC");
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            int paramIdx = 1;
+            if (courseFilter != null && !courseFilter.isBlank()) {
+                ps.setString(paramIdx++, "%" + courseFilter.trim() + "%");
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    data.add(new String[]{
+                            rs.getString("student_id"),
+                            rs.getString("last_name") + ", " + rs.getString("first_name"),
+                            rs.getString("year_section") != null ? rs.getString("year_section") : "N/A",
+                            rs.getString("course_program") != null ? rs.getString("course_program") : "N/A",
+                            rs.getString("device_type") != null ? rs.getString("device_type") : "Unknown",
+                            rs.getString("brand_model") != null ? rs.getString("brand_model") : "N/A",
+                            rs.getString("ingress_time") != null ? rs.getString("ingress_time").toString() : "N/A",
+                            rs.getString("egress_time") != null ? rs.getString("egress_time").toString() : "Still Inside"
+                    });
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error running filter export compiler query: " + e.getMessage());
+        }
+        return data;
     }
 }

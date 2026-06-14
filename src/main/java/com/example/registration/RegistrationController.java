@@ -12,27 +12,17 @@ import java.util.ArrayList;
 import java.util.List;
 import com.example.service.BYODService;
 
-/**
- * 3-step Registration Wizard with step completion checkmarks.
- *   Step 1 → Step 2   : validates student info, marks step 1 ✓
- *   Step 2 → Step 3   : validates at least one device, marks step 2 ✓
- */
 public class RegistrationController {
 
-    /* ── Navbar ─────────────────────────────────────────── */
     @FXML private Button logoutButton;
-
-    /* ── Step indicators ────────────────────────────────── */
     @FXML private Label stepStudentInfo;
     @FXML private Label stepDeviceDetails;
     @FXML private Label stepReview;
 
-    /* ── Step panels ────────────────────────────────────── */
     @FXML private VBox stepPanel1;
     @FXML private VBox stepPanel2;
     @FXML private VBox stepPanel3;
 
-    /* ── Step 1 fields ──────────────────────────────────── */
     @FXML private TextField lastNameField;
     @FXML private TextField firstNameField;
     @FXML private TextField studentIdField;
@@ -40,17 +30,14 @@ public class RegistrationController {
     @FXML private TextField courseField;
     @FXML private TextField contactField;
 
-    /* ── Step 2 fields ──────────────────────────────────── */
     @FXML private ComboBox<String> deviceTypeCombo;
     @FXML private TextField        brandModelField;
     @FXML private TextField        colorDescField;
 
-    /* ── Step 2: saved devices UI ───────────────────────── */
     @FXML private VBox  savedDevicesBox;
     @FXML private Label savedDevicesTitle;
     @FXML private VBox  savedDevicesList;
 
-    /* ── Step 3: review labels ──────────────────────────── */
     @FXML private Label reviewLastName;
     @FXML private Label reviewFirstName;
     @FXML private Label reviewStudentId;
@@ -60,7 +47,6 @@ public class RegistrationController {
     @FXML private Label reviewDevicesTitle;
     @FXML private VBox  reviewDevicesList;
 
-    /* ── Action buttons ─────────────────────────────────── */
     @FXML private Button backBtn;
     @FXML private Button addAnotherDevBtn;
     @FXML private Button nextStepBtn;
@@ -68,12 +54,10 @@ public class RegistrationController {
     @FXML private Button cancelBtn;
     @FXML private Label  formIdLabel;
 
-    /* ── State ──────────────────────────────────────────── */
     private static final int TOTAL_STEPS = 3;
     private int currentStep = 1;
     private boolean step1Completed = false;
     private boolean step2Completed = false;
-
 
     private static class DeviceEntry {
         String type, brand, color;
@@ -85,8 +69,6 @@ public class RegistrationController {
     }
     private final List<DeviceEntry> savedDevices = new ArrayList<>();
 
-    /* ════════════════════════════════════════════════════ */
-
     @FXML
     public void initialize() {
         if (formIdLabel != null)
@@ -96,10 +78,8 @@ public class RegistrationController {
         showStep(1);
     }
 
-    /* ── Show step + configure buttons ─────────────────── */
     private void showStep(int step) {
         currentStep = step;
-
         setPanel(stepPanel1, step == 1);
         setPanel(stepPanel2, step == 2);
         setPanel(stepPanel3, step == 3);
@@ -109,7 +89,6 @@ public class RegistrationController {
         setBtn(nextStepBtn,      step < TOTAL_STEPS);
         setBtn(saveBtn,          step == TOTAL_STEPS);
         setBtn(cancelBtn,        step == TOTAL_STEPS);
-
         updateDots(step);
     }
 
@@ -125,7 +104,6 @@ public class RegistrationController {
         b.setManaged(show);
     }
 
-    /* ── Step indicators with checkmarks for completed steps ── */
     private void updateDots(int active) {
         Label[] dots = { stepStudentInfo, stepDeviceDetails, stepReview };
         for (int i = 0; i < dots.length; i++) {
@@ -136,7 +114,6 @@ public class RegistrationController {
             d.getStyleClass().remove("step-inactive");
 
             if (i + 1 < active) {
-                // Previous step → show ✓ only if completed
                 boolean completed = (i == 0 && step1Completed) || (i == 1 && step2Completed);
                 if (completed) {
                     d.setText("✔");
@@ -155,7 +132,6 @@ public class RegistrationController {
         }
     }
 
-    /* ── Validation methods ────────────────────────────── */
     private boolean isStep1Valid() {
         String lastName = lastNameField != null ? lastNameField.getText().trim() : "";
         String firstName = firstNameField != null ? firstNameField.getText().trim() : "";
@@ -175,13 +151,11 @@ public class RegistrationController {
         return true;
     }
 
-    /* ── Back button ───────────────────────────────────── */
     @FXML
     private void handleBack() {
         if (currentStep > 1) showStep(currentStep - 1);
     }
 
-    /* ── Add Another Device ─────────────────────────────── */
     @FXML
     private void handleAddAnotherDevice() {
         String type  = deviceTypeCombo != null ? deviceTypeCombo.getValue() : null;
@@ -195,7 +169,6 @@ public class RegistrationController {
         savedDevices.add(new DeviceEntry(type, brand, color));
         refreshSavedDevicesUI();
 
-        // Clear fields for next device
         if (deviceTypeCombo != null) deviceTypeCombo.setValue(null);
         if (brandModelField  != null) brandModelField.clear();
         if (colorDescField   != null) colorDescField.clear();
@@ -229,7 +202,6 @@ public class RegistrationController {
             rm.setOnAction(ev -> {
                 savedDevices.remove(idx);
                 refreshSavedDevicesUI();
-                // If step2 was completed but now devices become empty, reset completion flag
                 if (savedDevices.isEmpty()) {
                     step2Completed = false;
                     updateDots(currentStep);
@@ -241,7 +213,6 @@ public class RegistrationController {
         }
     }
 
-    /* ── Next Step ──────────────────────────────────────── */
     @FXML
     private void handleNextStep() {
         if (currentStep == 1) {
@@ -249,7 +220,6 @@ public class RegistrationController {
             step1Completed = true;
             showStep(2);
         } else if (currentStep == 2) {
-            // Auto-save current device fields if type is filled
             String type  = deviceTypeCombo != null ? deviceTypeCombo.getValue() : null;
             String brand = brandModelField  != null ? brandModelField.getText().trim()   : "";
             String color = colorDescField   != null ? colorDescField.getText().trim()    : "";
@@ -264,7 +234,6 @@ public class RegistrationController {
         }
     }
 
-    /* ── Populate review panel ──────────────────────────── */
     private void populateReview() {
         set(reviewLastName,    lastNameField);
         set(reviewFirstName,   firstNameField);
@@ -286,8 +255,7 @@ public class RegistrationController {
                 Label title = new Label("Device " + (i+1) + " — " + DeviceEntry.nvl(e.type));
                 title.setStyle("-fx-font-weight:700;-fx-text-fill:#333;");
 
-                Label detail = new Label("Brand/Model: " + DeviceEntry.nvl(e.brand)
-                        + "    Color: " + DeviceEntry.nvl(e.color));
+                Label detail = new Label("Brand/Model: " + DeviceEntry.nvl(e.brand) + "    Color: " + DeviceEntry.nvl(e.color));
                 detail.setStyle("-fx-text-fill:#666;-fx-font-size:12;");
 
                 card.getChildren().addAll(title, detail);
@@ -309,7 +277,6 @@ public class RegistrationController {
         a.showAndWait();
     }
 
-    /* ── Save ───────────────────────────────────────────── */
     private final BYODService byodService = new BYODService();
 
     @FXML
@@ -326,21 +293,30 @@ public class RegistrationController {
 
         try {
             for (DeviceEntry d : savedDevices) {
-                byodService.registerStudent(sid, lastNameField.getText().trim(), firstNameField.getText().trim(),
-                        yearSectionField.getText().trim(), courseField.getText().trim(),
-                        contactField.getText().trim(), d.type, d.brand, d.color);
+                byodService.registerStudent(
+                        sid,
+                        lastNameField.getText().trim(),
+                        firstNameField.getText().trim(),
+                        yearSectionField.getText().trim(),
+                        courseField.getText().trim(),
+                        contactField.getText().trim(),
+                        d.type,
+                        d.brand,
+                        d.color
+                );
             }
 
             String payload = String.join("|", sid, lastNameField.getText(), firstNameField.getText(),
                     yearSectionField.getText(), courseField.getText(), contactField.getText());
             String qrPath = byodService.generateQR(payload, sid, System.getProperty("user.dir"));
 
-            Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setTitle("Registration Saved");
-            a.setHeaderText(null);
-            a.setContentText("Saved " + savedDevices.size() + " device(s).\nQR saved to: " + qrPath);
-            a.showAndWait();
+            // HOOKED UP: Spawns the clean side-by-side aesthetic instructions + layout QR window
+            Stage activeStage = (Stage) logoutButton.getScene().getWindow();
+            com.example.monitoring.QRRegistrationSuccessWindow.show(activeStage, sid, qrPath);
+
+            // Navigate back to tracking list dashboard logs automatically
             navigateTo("/fxml/monitoring.fxml");
+
         } catch (Exception ex) {
             showAlert("Database Error", ex.getMessage());
         }
@@ -351,7 +327,6 @@ public class RegistrationController {
         navigateTo("/fxml/monitoring.fxml");
     }
 
-    /* ── Navigation ─────────────────────────────────────── */
     @FXML private void handleLogout()       { navigateTo("/fxml/login.fxml"); }
     @FXML private void handleDashboard()    { navigateTo("/fxml/dashboard.fxml"); }
     @FXML private void handleMonitoring()   { navigateTo("/fxml/monitoring.fxml"); }
@@ -360,7 +335,7 @@ public class RegistrationController {
 
     private void navigateTo(String fxml) {
         try {
-            Parent root = FXMLLoader.load(getClass().getResource(fxml));
+            Parent root = FXMLLoader.load(getClass().getResource(fxml.toLowerCase()));
             Stage stage = (Stage) logoutButton.getScene().getWindow();
             Scene current = stage.getScene();
             current.getStylesheets().clear();

@@ -5,7 +5,7 @@ import javafx.application.Application;
 
 public class Launcher {
     public static void main(String[] args) {
-        // Launch the login screen
+        // Launches LoginApp, which now opens the dashboard immediately!
         Application.launch(LoginApp.class, args);
     }
 }

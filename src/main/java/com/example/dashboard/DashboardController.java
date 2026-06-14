@@ -9,10 +9,14 @@ import javafx.scene.chart.BarChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
+import com.example.service.BYODService;
+import com.example.monitoring.QRScannerWindow;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -71,13 +75,20 @@ public class DashboardController {
     private final Label[] logStatuses = new Label[5];
     private final Label[] logTimes = new Label[5];
 
+    // CONNECTED: Database Service Instance
+    private final BYODService byodService = new BYODService();
+
     @FXML
     public void initialize() {
         initLogArrays();
         addStylesheetToScene();
         dateLabel.setText(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy").format(LocalDate.now()));
-        dashboardButton.getStyleClass().add("active");
-        loadHardcodedData();
+
+        if (dashboardButton != null) {
+            dashboardButton.getStyleClass().add("active");
+        }
+
+        loadLiveDatabaseData();
     }
 
     private void initLogArrays() {
@@ -92,8 +103,8 @@ public class DashboardController {
     }
 
     private void addStylesheetToScene() {
-        Scene scene = dateLabel.getScene();
-        if (scene != null) {
+        if (dateLabel != null && dateLabel.getScene() != null) {
+            Scene scene = dateLabel.getScene();
             String css = getClass().getResource(STYLESHEET_PATH).toExternalForm();
             if (!scene.getStylesheets().contains(css)) {
                 scene.getStylesheets().add(css);
@@ -103,43 +114,77 @@ public class DashboardController {
         }
     }
 
-    private void loadHardcodedData() {
+    // CONNECTED: Pulls actual relational metrics and live operational database transaction logs
+    private void loadLiveDatabaseData() {
         updateSyncStatus(SYNC_STATUS_LOADING);
+
         Platform.runLater(() -> {
-            // Statistics
-            totalStudentsLabel.setText("245");
-            totalDevicesLabel.setText("312");
-            devicesInsideLabel.setText("187");
-            ingressTodayLabel.setText("42");
-            egressTodayLabel.setText("38");
+            try {
+                // 1. Load Live Analytical Statistics Counters
+                Map<String, Integer> metrics = byodService.fetchDashboardMetrics();
+                if (!metrics.isEmpty()) {
+                    totalStudentsLabel.setText(String.valueOf(metrics.getOrDefault("totalStudents", 0)));
+                    totalDevicesLabel.setText(String.valueOf(metrics.getOrDefault("totalDevices", 0)));
+                    devicesInsideLabel.setText(String.valueOf(metrics.getOrDefault("devicesInside", 0)));
+                    ingressTodayLabel.setText(String.valueOf(metrics.getOrDefault("ingressToday", 0)));
+                    egressTodayLabel.setText(String.valueOf(metrics.getOrDefault("egressToday", 0)));
+                }
 
-            // Logs
-            String[][] logs = {
-                    {"John Michael Santos", "2024-00125", "📥 In", "08:15 AM"},
-                    {"Maria Clara Gomez",   "2024-00456", "📤 Out", "05:30 PM"},
-                    {"Jose Rizal Mercado",  "2024-00789", "📥 In", "09:20 AM"},
-                    {"Andres Bonifacio",    "2024-00321", "📥 In", "10:45 AM"},
-                    {"Gabriela Silang",     "2024-00888", "📤 Out", "04:00 PM"}
-            };
-            for (int i = 0; i < logs.length; i++) {
-                logNames[i].setText(logs[i][0]);
-                logIds[i].setText(logs[i][1]);
-                logStatuses[i].setText(logs[i][2]);
-                logTimes[i].setText(logs[i][3]);
-                applyStatusStyle(logStatuses[i], logTimes[i], logs[i][2]);
+                // 2. Clear out log UI structures before fresh rendering passes
+                for (int i = 0; i < 5; i++) {
+                    if (logNames[i] != null) {
+                        logNames[i].setText("");
+                        logIds[i].setText("");
+                        logStatuses[i].setText("");
+                        logTimes[i].setText("");
+                    }
+                }
+
+                // 3. Load Recent Log Entries (Max 5 Rows)
+                List<Object[]> databaseLogs = byodService.fetchLogs();
+                int displayLimit = Math.min(databaseLogs.size(), 5);
+
+                for (int i = 0; i < displayLimit; i++) {
+                    Object[] row = databaseLogs.get(i);
+                    String studentName = (String) row[1];
+                    String studentId = (String) row[2];
+                    String egressTime = (String) row[5];
+
+                    String statusText = (egressTime == null) ? "📥 In" : "📤 Out";
+                    String timestampText = (egressTime == null) ? (String) row[4] : egressTime;
+
+                    // Clean string styling trim if dates contain long ISO string blocks
+                    if (timestampText != null && timestampText.contains(" ")) {
+                        String[] parts = timestampText.split(" ");
+                        if (parts.length > 1) timestampText = parts[1].substring(0, 5); // Pulls 'HH:MM' format block
+                    }
+
+                    if (logNames[i] != null) {
+                        logNames[i].setText(studentName);
+                        logIds[i].setText(studentId);
+                        logStatuses[i].setText(statusText);
+                        logTimes[i].setText(timestampText);
+                        applyStatusStyle(logStatuses[i], logTimes[i], statusText);
+                    }
+                }
+
+                // 4. Update Weekly Activity Analytics Chart Visuals
+                String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+                int[] ingressData = {23, 31, 28, 35, 42, 18, 12}; // Can hook up to custom database chart query counts later
+                int[] egressData  = {20, 27, 25, 30, 38, 15, 10};
+                updateChart(days, ingressData, egressData);
+
+                updateSyncStatus(SYNC_STATUS_LIVE);
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to load live tracking logs dashboard metrics", ex);
+                updateSyncStatus(SYNC_STATUS_OFFLINE);
             }
-
-            // Chart data
-            String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-            int[] ingressData = {23, 31, 28, 35, 42, 18, 12};
-            int[] egressData  = {20, 27, 25, 30, 38, 15, 10};
-            updateChart(days, ingressData, egressData);
-
-            updateSyncStatus(SYNC_STATUS_LIVE);
         });
     }
 
     private void applyStatusStyle(Label statusLabel, Label timeLabel, String statusText) {
+        if (statusLabel == null || timeLabel == null) return;
         statusLabel.getStyleClass().removeAll("log-status-in", "log-status-out");
         timeLabel.getStyleClass().removeAll("log-time-in", "log-time-out");
         if (statusText.contains("In")) {
@@ -152,6 +197,7 @@ public class DashboardController {
     }
 
     private void updateChart(String[] days, int[] ingress, int[] egress) {
+        if (activityChart == null) return;
         XYChart.Series<String, Number> ingressSeries = new XYChart.Series<>();
         ingressSeries.setName("Ingress");
         XYChart.Series<String, Number> egressSeries = new XYChart.Series<>();
@@ -165,6 +211,7 @@ public class DashboardController {
     }
 
     private void updateSyncStatus(String status) {
+        if (syncStatusLabel == null) return;
         syncStatusLabel.getStyleClass().removeAll("sync-status-live", "sync-status-offline", "sync-status-connecting");
         if (SYNC_STATUS_LIVE.equalsIgnoreCase(status)) {
             syncStatusLabel.setText("⏺ Live");
@@ -182,7 +229,7 @@ public class DashboardController {
     @FXML
     private void handleRefresh() {
         LOGGER.info("Manual refresh triggered");
-        loadHardcodedData();
+        loadLiveDatabaseData();
     }
 
     @FXML
@@ -211,39 +258,21 @@ public class DashboardController {
         }
     }
 
-    @FXML
-    private void handleDashboard() {
-        handleRefresh(); // already on dashboard
-    }
-
-    @FXML
-    private void handleMonitoring() {
-        navigateTo(MONITORING_FXML, "Monitoring - BYOD System");
-    }
-
-    @FXML
-    private void handleRegistration() {
-        navigateTo(REGISTRATION_FXML, "Registration - BYOD System");
-    }
-
-    @FXML
-    private void handleReports() {
-        navigateTo(REPORTS_FXML, "Reports - BYOD System");
-    }
-
-    @FXML
-    private void handleAccount() {
-        navigateTo(ACCOUNT_FXML, "Account - BYOD System");
-    }
+    @FXML private void handleDashboard() { handleRefresh(); }
+    @FXML private void handleMonitoring() { navigateTo(MONITORING_FXML, "Monitoring - BYOD System"); }
+    @FXML private void handleRegistration() { navigateTo(REGISTRATION_FXML, "Registration - BYOD System"); }
+    @FXML private void handleReports() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML private void handleAccount() { navigateTo(ACCOUNT_FXML, "Account - BYOD System"); }
 
     private void navigateTo(String fxmlPath, String title) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath.toLowerCase()));
             Parent root = loader.load();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
 
-            Stage stage = (Stage) monitoringButton.getScene().getWindow();
+            // FIXED: Grabs root anchor window from the active click sender element safely
+            Stage stage = (Stage) dateLabel.getScene().getWindow();
             stage.setScene(scene);
             stage.setTitle(title);
             stage.setMaximized(false);
@@ -260,11 +289,28 @@ public class DashboardController {
         navigateTo(MONITORING_FXML, "Monitoring - BYOD System");
     }
 
+    // CONNECTED: Directly opens your live webcam scanner modal window right from the main dashboard dashboard view button!
     @FXML
     private void handleScanQr() {
-        LOGGER.info("QR scan clicked");
-        showInfoDialog("QR Scanner", "Scan Student QR Code",
-                "This feature will open the camera to scan student QR codes for check‑in/out.");
+        Stage currentStage = (Stage) dateLabel.getScene().getWindow();
+
+        QRScannerWindow.openScanner(currentStage, qrPayload -> {
+            try {
+                String studentId = qrPayload;
+                if (qrPayload.contains("|")) {
+                    studentId = qrPayload.split("\\|")[0];
+                }
+
+                // Call core business data transaction loop
+                byodService.updateEgress(studentId);
+
+                showInfoDialog("Access Granted", "Scan Successful", "QR Scanned! You can now exit the Campus.");
+                loadLiveDatabaseData(); // Reload stats counters dynamically instantly
+
+            } catch (Exception ex) {
+                showError("Scanner Database Error", "Failed to clear campus egress logging details", ex.getMessage());
+            }
+        });
     }
 
     @FXML
@@ -273,29 +319,18 @@ public class DashboardController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(MONITORING_FXML));
             Parent root = loader.load();
 
-            // Get the monitoring controller to access its search field
-            Object controller = loader.getController();
-
-            Stage stage = (Stage) searchButton.getScene().getWindow();
+            Stage stage = (Stage) dateLabel.getScene().getWindow();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
             stage.setScene(scene);
             stage.setTitle("Monitoring - BYOD System");
             stage.centerOnScreen();
 
-            // After the scene is rendered, focus the search field
             Platform.runLater(() -> {
                 try {
-                    // Use reflection or a public method to access the search field
-                    // Option 1: If MonitoringController has a public method focusSearchField()
-                    // ((MonitoringController) controller).focusSearchField();
-
-                    // Option 2: Direct lookup (simpler, no need to modify MonitoringController)
                     TextField searchField = (TextField) root.lookup("#searchField");
                     if (searchField != null) {
                         searchField.requestFocus();
-                    } else {
-                        LOGGER.warning("Search field not found in monitoring view");
                     }
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Could not focus search field", e);
@@ -304,23 +339,18 @@ public class DashboardController {
 
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to load monitoring view", e);
-            showError("Navigation Error", "Could not open Monitoring",
-                    "Failed to load the monitoring view.\n\nDetails: " + e.getMessage());
+            showError("Navigation Error", "Could not open Monitoring", e.getMessage());
         }
     }
 
     @FXML
     private void handleIngress() {
-        LOGGER.info("Manual ingress clicked");
-        showInfoDialog("Log Ingress", "Record Device Entry",
-                "Select a student and device to log manual ingress.");
+        navigateTo(MONITORING_FXML, "Monitoring - BYOD System");
     }
 
     @FXML
     private void handleEgress() {
-        LOGGER.info("Manual egress clicked");
-        showInfoDialog("Log Egress", "Record Device Exit",
-                "Select a student and device to log manual egress.");
+        navigateTo(MONITORING_FXML, "Monitoring - BYOD System");
     }
 
     @FXML
@@ -329,29 +359,23 @@ public class DashboardController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(REPORTS_FXML));
             Parent root = loader.load();
 
-            Stage stage = (Stage) exportButton.getScene().getWindow();
+            Stage stage = (Stage) dateLabel.getScene().getWindow();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
             stage.setScene(scene);
             stage.setTitle("Reports - BYOD System");
             stage.centerOnScreen();
 
-            // After the scene is ready, programmatically click the "Export all" button in Reports view
             Platform.runLater(() -> {
                 Button exportAllBtn = (Button) root.lookup("#exportAllBtn");
                 if (exportAllBtn != null) {
                     exportAllBtn.fire();
-                } else {
-                    LOGGER.warning("exportAllBtn not found in Reports view");
-                    showError("Export Error", "Button not found",
-                            "The 'Export all' button could not be located in the Reports view.");
                 }
             });
 
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to load reports view", e);
-            showError("Navigation Error", "Could not open Reports section",
-                    "Failed to load the reports view.\n\nDetails: " + e.getMessage());
+            showError("Navigation Error", "Could not open Reports section", e.getMessage());
         }
     }
 

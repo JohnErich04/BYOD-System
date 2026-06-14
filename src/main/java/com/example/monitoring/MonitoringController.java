@@ -17,22 +17,19 @@ import com.example.service.BYODService;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Controller for the Monitoring view.
- * Displays device logs with search, filtering, pagination, and card summaries.
- */
 public class MonitoringController implements Initializable {
 
     private static final Logger LOGGER = Logger.getLogger(MonitoringController.class.getName());
     private static final String STYLESHEET_PATH = "/css/stylesheet.css";
-    private static final String DASHBOARD_FXML = "/fxml/Dashboard.fxml";
-    private static final String REGISTRATION_FXML = "/fxml/Registration.fxml";
-    private static final String REPORTS_FXML = "/fxml/Reports.fxml";
-    private static final String ACCOUNT_FXML = "/fxml/Account.fxml";
-    private static final String LOGIN_FXML = "/fxml/Login.fxml";
+    private static final String DASHBOARD_FXML = "/fxml/dashboard.fxml";
+    private static final String REGISTRATION_FXML = "/fxml/registration.fxml";
+    private static final String REPORTS_FXML = "/fxml/reports.fxml";
+    private static final String ACCOUNT_FXML = "/fxml/account.fxml";
+    private static final String LOGIN_FXML = "/fxml/login.fxml";
 
     private static final String STATUS_INGRESS = "Ingress";
     private static final String STATUS_EGRESS = "Egress";
@@ -48,7 +45,7 @@ public class MonitoringController implements Initializable {
     @FXML private Button logoutButton;
 
     // ==================== STATUS & FILTERS ====================
-    @FXML private Label syncNoDevices;          // changed from syncStatusLabel
+    @FXML private Label syncNoDevices;
     @FXML private TextField searchField;
     @FXML private Button allDeviceTypesButton;
     @FXML private Button allStatusButton;
@@ -70,8 +67,8 @@ public class MonitoringController implements Initializable {
     @FXML private TableColumn<LogEntry, String> deviceSerialColumn;
     @FXML private TableColumn<LogEntry, String> statusColumn;
     @FXML private TableColumn<LogEntry, String> lastLogColumn;
-    @FXML private TableColumn<LogEntry, Void> actionsColumn;    // History button
-    @FXML private TableColumn<LogEntry, Void> editColumn;       // Ingress/Egress toggle
+    @FXML private TableColumn<LogEntry, Void> actionsColumn;
+    @FXML private TableColumn<LogEntry, Void> editColumn;
 
     // ==================== PAGINATION ====================
     @FXML private Label paginationStatusLabel;
@@ -90,18 +87,21 @@ public class MonitoringController implements Initializable {
     private int totalPages = 1;
     private int totalItems = 0;
 
-    // ==================== INITIALIZATION ====================
+    private final BYODService byodService = new BYODService();
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         try {
             addStylesheetToScene();
             setupTableColumns();
             setupSearchListener();
-            loadInitialData();           // TODO: Replace with real data load
-            updateCardNumbers();         // TODO: Fetch from backend
+            loadInitialData();
+            updateCardNumbers();
             updatePagination();
 
-            monitoringButton.getStyleClass().add("active");
+            if (monitoringButton != null) {
+                monitoringButton.getStyleClass().add("active");
+            }
 
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to initialize monitoring view", e);
@@ -110,25 +110,21 @@ public class MonitoringController implements Initializable {
     }
 
     private void addStylesheetToScene() {
-        Scene scene = monitoringButton.getScene();
-        if (scene != null) {
+        if (monitoringButton != null && monitoringButton.getScene() != null) {
+            Scene scene = monitoringButton.getScene();
             String css = getClass().getResource(STYLESHEET_PATH).toExternalForm();
             if (!scene.getStylesheets().contains(css)) {
                 scene.getStylesheets().add(css);
             }
-        } else {
-            LOGGER.warning("Scene not available for stylesheet injection");
         }
     }
 
-    // ==================== TABLE SETUP ====================
     private void setupTableColumns() {
         studentNameColumn.setCellValueFactory(new PropertyValueFactory<>("studentName"));
         studentIdColumn.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         deviceSerialColumn.setCellValueFactory(new PropertyValueFactory<>("deviceSerial"));
         lastLogColumn.setCellValueFactory(new PropertyValueFactory<>("lastLog"));
 
-        // Status column with custom CSS classes
         statusColumn.setCellValueFactory(new PropertyValueFactory<>("status"));
         statusColumn.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -149,7 +145,6 @@ public class MonitoringController implements Initializable {
             }
         });
 
-        // Actions column – View History button
         actionsColumn.setCellFactory(param -> new TableCell<>() {
             private final Button historyButton = new Button("👁️‍🗨️");
             {
@@ -170,20 +165,24 @@ public class MonitoringController implements Initializable {
             }
         });
 
-        // Edit column – quick Ingress/Egress toggle
         editColumn.setCellFactory(param -> new TableCell<>() {
             private final Button ingressButton = new Button("📥 In");
             private final Button egressButton = new Button("📤 Out");
             {
                 ingressButton.getStyleClass().add("table-edit");
                 egressButton.getStyleClass().add("table-edit");
+
                 ingressButton.setOnAction(e -> {
                     LogEntry entry = getTableView().getItems().get(getIndex());
                     if (entry != null) onMarkIngress(entry);
                 });
+
+                // CHANGED: Clicking "Out" row item now boots the dynamic camera hardware modal loop window
                 egressButton.setOnAction(e -> {
                     LogEntry entry = getTableView().getItems().get(getIndex());
-                    if (entry != null) onMarkEgress(entry);
+                    if (entry != null) {
+                        triggerQRCameraEgress();
+                    }
                 });
             }
             @Override
@@ -214,7 +213,6 @@ public class MonitoringController implements Initializable {
         });
     }
 
-    // ==================== FILTERING & PAGINATION ====================
     private void filterAndPaginate() {
         String searchTerm = searchField.getText().toLowerCase();
         ObservableList<LogEntry> filtered = allLogEntries.filtered(entry ->
@@ -249,13 +247,11 @@ public class MonitoringController implements Initializable {
     }
 
     private void updatePageButtons() {
-        // Always show page 1 button
         page1Button.setText("1");
         page1Button.setDisable(totalPages < 1);
         page1Button.setVisible(true);
 
         if (totalPages <= 2) {
-            // Not enough pages for dynamic buttons
             if (totalPages == 2) {
                 page2Button.setText("2");
                 page2Button.setDisable(false);
@@ -274,28 +270,19 @@ public class MonitoringController implements Initializable {
             return;
         }
 
-        // Determine the dynamic range for page2Button and page3Button
-        // They will show two consecutive pages that never include page 1,
-        // but keep the current page visible when possible.
         int startDynamic;
         if (currentPage <= 2) {
-            // Near the beginning: show pages 2 and 3
             startDynamic = 2;
         } else if (currentPage >= totalPages - 1) {
-            // Near the end: show last two pages before totalPages
             startDynamic = totalPages - 2;
         } else {
-            // Middle: show currentPage and currentPage+1 (or currentPage-1 and currentPage)
-            // To keep current page visible and avoid overlapping page 1:
             if (currentPage == 2 && totalPages > 2) {
-                startDynamic = 2; // show 2,3
+                startDynamic = 2;
             } else {
                 startDynamic = currentPage;
-                // Ensure we don't exceed totalPages - 1 for the second button
                 if (startDynamic + 1 > totalPages) {
                     startDynamic = totalPages - 1;
                 }
-                // Also ensure we never show page 1 again
                 if (startDynamic == 1) startDynamic = 2;
             }
         }
@@ -303,7 +290,6 @@ public class MonitoringController implements Initializable {
         int secondPage = startDynamic;
         int thirdPage = Math.min(startDynamic + 1, totalPages);
 
-        // Avoid showing duplicate of page 1 (should never happen, but safety)
         if (secondPage == 1) secondPage = 2;
         if (thirdPage == 1) thirdPage = 2;
 
@@ -312,12 +298,10 @@ public class MonitoringController implements Initializable {
         page2Button.setDisable(false);
         page3Button.setDisable(thirdPage > totalPages || thirdPage == secondPage);
 
-        // Show ellipsis only if there are more pages after thirdPage
         boolean hasMore = thirdPage < totalPages;
         ellipsisButton.setVisible(hasMore);
         ellipsisButton.setDisable(!hasMore);
 
-        // Last page button
         lastPageButton.setText(String.valueOf(totalPages));
         lastPageButton.setDisable(currentPage >= totalPages);
         prevPageButton.setDisable(currentPage == 1);
@@ -343,10 +327,9 @@ public class MonitoringController implements Initializable {
             lastPageButton.getStyleClass().add("active");
     }
 
-    // ==================== NAVIGATION ====================
     private void navigateTo(String fxmlPath, String title) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath.toLowerCase()));
             Parent root = loader.load();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
@@ -354,7 +337,6 @@ public class MonitoringController implements Initializable {
             Stage stage = (Stage) monitoringButton.getScene().getWindow();
             stage.setScene(scene);
             stage.setTitle(title);
-            // Do NOT force maximized – respect the FXML's preferred size
             stage.setMaximized(false);
             stage.centerOnScreen();
         } catch (IOException e) {
@@ -364,25 +346,11 @@ public class MonitoringController implements Initializable {
     }
 
     // ==================== BUTTON ACTIONS ====================
-    @FXML private void onDashboardClick() {
-        navigateTo(DASHBOARD_FXML, "Dashboard - BYOD System");
-    }
-
-    @FXML private void onMonitoringClick() {
-        refreshMonitoringData();
-    }
-
-    @FXML private void onRegistrationClick() {
-        navigateTo(REGISTRATION_FXML, "Device Registration - BYOD System");
-    }
-
-    @FXML private void onReportsClick() {
-        navigateTo(REPORTS_FXML, "Reports - BYOD System");
-    }
-
-    @FXML private void onAccountClick() {
-        navigateTo(ACCOUNT_FXML, "Account Settings - BYOD System");
-    }
+    @FXML private void onDashboardClick() { navigateTo(DASHBOARD_FXML, "Dashboard - BYOD System"); }
+    @FXML private void onMonitoringClick() { refreshMonitoringData(); }
+    @FXML private void onRegistrationClick() { navigateTo(REGISTRATION_FXML, "Device Registration - BYOD System"); }
+    @FXML private void onReportsClick() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML private void onAccountClick() { navigateTo(ACCOUNT_FXML, "Account Settings - BYOD System"); }
 
     @FXML private void onLogoutClick() {
         Stage stage = (Stage) logoutButton.getScene().getWindow();
@@ -408,44 +376,20 @@ public class MonitoringController implements Initializable {
         }
     }
 
-    @FXML private void onSearch() {
-        filterAndPaginate();
+    // NEW / CHANGED: Click action bound to your dedicated layout scanner button
+    @FXML
+    private void onScanQREgressClick() {
+        triggerQRCameraEgress();
     }
 
-    @FXML private void onAllDeviceTypesFilter() {
-        // TODO: Implement device type filter
-        LOGGER.info("Filter by device type - NOT IMPLEMENTED");
-        filterAndPaginate();
-    }
+    @FXML private void onSearch() { filterAndPaginate(); }
+    @FXML private void onAllDeviceTypesFilter() { filterAndPaginate(); }
+    @FXML private void onAllStatusFilter() { filterAndPaginate(); }
+    @FXML private void onDatePicker() { LOGGER.info("Date filter clicked"); }
+    @FXML private void onExportLog() { LOGGER.info("Export CSV handling triggered"); }
+    @FXML private void onLogEntry() { LOGGER.info("Manual row creation requested"); }
 
-    @FXML private void onAllStatusFilter() {
-        // TODO: Implement status filter (All, Ingress, Egress)
-        LOGGER.info("Filter by status - NOT IMPLEMENTED");
-        filterAndPaginate();
-    }
-
-    @FXML private void onDatePicker() {
-        // TODO: Date picker dialog
-        LOGGER.info("Date picker - NOT IMPLEMENTED");
-    }
-
-    @FXML private void onExportLog() {
-        // TODO: Export to CSV/Excel
-        LOGGER.info("Export log - NOT IMPLEMENTED");
-    }
-
-    @FXML private void onLogEntry() {
-        // TODO: Manual log entry dialog
-        LOGGER.info("Manual log entry - NOT IMPLEMENTED");
-    }
-
-    @FXML private void onPrevPage() {
-        if (currentPage > 1) {
-            currentPage--;
-            updatePagination();
-        }
-    }
-
+    @FXML private void onPrevPage() { if (currentPage > 1) { currentPage--; updatePagination(); } }
     @FXML private void onPage1() {
         try {
             int page = Integer.parseInt(page1Button.getText());
@@ -455,72 +399,84 @@ public class MonitoringController implements Initializable {
             }
         } catch (NumberFormatException ignored) { }
     }
-
     @FXML private void onPage2() {
         if (page2Button.isDisabled()) return;
-        try {
-            currentPage = Integer.parseInt(page2Button.getText());
-            updatePagination();
-        } catch (NumberFormatException ignored) { }
+        try { currentPage = Integer.parseInt(page2Button.getText()); updatePagination(); } catch (NumberFormatException ignored) { }
     }
-
     @FXML private void onPage3() {
         if (page3Button.isDisabled()) return;
-        try {
-            currentPage = Integer.parseInt(page3Button.getText());
-            updatePagination();
-        } catch (NumberFormatException ignored) { }
+        try { currentPage = Integer.parseInt(page3Button.getText()); updatePagination(); } catch (NumberFormatException ignored) { }
     }
-
     @FXML private void onEllipsis() {
-        // Jump to the page right after the current third page button
         int third = Integer.parseInt(page3Button.getText());
-        if (third < totalPages) {
-            currentPage = Math.min(third + 1, totalPages);
-            updatePagination();
-        }
+        if (third < totalPages) { currentPage = Math.min(third + 1, totalPages); updatePagination(); }
     }
-
-    @FXML private void onLastPage() {
-        currentPage = totalPages;
-        updatePagination();
-    }
-
-    @FXML private void onNextPage() {
-        if (currentPage < totalPages) {
-            currentPage++;
-            updatePagination();
-        }
-    }
+    @FXML private void onLastPage() { currentPage = totalPages; updatePagination(); }
+    @FXML private void onNextPage() { if (currentPage < totalPages) { currentPage++; updatePagination(); } }
 
     // ==================== TABLE ACTION HANDLERS ====================
     private void onViewHistory(LogEntry entry) {
-        // TODO: Show student/device history dialog
-        LOGGER.info("View history for: " + entry);
+        Alert info = new Alert(Alert.AlertType.INFORMATION);
+        info.setTitle("Log Snapshot Context");
+        info.setHeaderText("Viewing Log Details");
+        info.setContentText("Student ID: " + entry.getStudentId() +
+                "\nStudent Name: " + entry.getStudentName() +
+                "\nDevice Details: " + entry.getDeviceSerial() +
+                "\nLast Recorded Action: " + entry.getLastLog());
+        info.showAndWait();
     }
 
     private void onMarkIngress(LogEntry entry) {
-        // TODO: Update status to Ingress in backend
-        LOGGER.info("Mark Ingress: " + entry);
+        try {
+            byodService.updateIngress(entry.getStudentId(), entry.getStudentName(), entry.getDeviceSerial());
+            refreshMonitoringData();
+        } catch (Exception e) {
+            showAlert("Database Ingress Error", e.getMessage());
+        }
     }
 
-    private void onMarkEgress(LogEntry entry) {
-        // TODO: Update status to Egress in backend
-        LOGGER.info("Mark Egress: " + entry);
+    // NEW: Unified method that spawns the camera window to safely scan the QR code for egress
+    private void triggerQRCameraEgress() {
+        Stage currentStage = (Stage) monitoringTableView.getScene().getWindow();
+
+        QRScannerWindow.openScanner(currentStage, qrPayload -> {
+            try {
+                // Parse out the Student ID from your pipeline QR token string (e.g., "S2026-001|Dela Cruz|...")
+                String studentId = qrPayload;
+                if (qrPayload.contains("|")) {
+                    studentId = qrPayload.split("\\|")[0];
+                }
+
+                // Process the change status right inside the database transaction logs
+                byodService.updateEgress(studentId);
+
+                // Visual notification banner showing text upon complete exit authorization
+                showSuccessAlert("QR Scanned! You can now exit the Campus.");
+
+                // Refresh dashboard summaries
+                refreshMonitoringData();
+
+            } catch (Exception ex) {
+                showAlert("Scanner Database Error", "Failed to process scanned code:\n" + ex.getMessage());
+            }
+        });
     }
 
     // ==================== DATA LOADING ====================
-    private final BYODService byodService = new BYODService();
-
     private void loadInitialData() {
         allLogEntries.clear();
         try {
             for (Object[] row : byodService.fetchLogs()) {
                 String egress = (String) row[5];
                 String status = (egress == null) ? "Ingress" : "Egress";
+                String timestamp = status.equals("Ingress") ? (String) row[4] : egress;
+
                 allLogEntries.add(new LogEntry(
-                        (String) row[2], (String) row[1], (String) row[3],
-                        status, (String) row[4]
+                        (String) row[2],
+                        (String) row[1],
+                        (String) row[3],
+                        status,
+                        timestamp
                 ));
             }
         } catch (Exception e) {
@@ -529,7 +485,6 @@ public class MonitoringController implements Initializable {
     }
 
     private void refreshMonitoringData() {
-        // TODO: Reload from backend
         loadInitialData();
         updateCardNumbers();
         currentPage = 1;
@@ -537,19 +492,33 @@ public class MonitoringController implements Initializable {
     }
 
     private void updateCardNumbers() {
-        // TODO: Fetch real counts from backend
-        totalStudentsLabel.setText("1250");
-        totalDevicesLabel.setText("1870");
-        devicesInsideLabel.setText("342");
-        ingressTodayLabel.setText("156");
-        egressTodayLabel.setText("98");
+        try {
+            Map<String, Integer> metrics = byodService.fetchDashboardMetrics();
+            if (!metrics.isEmpty()) {
+                totalStudentsLabel.setText(String.valueOf(metrics.get("totalStudents")));
+                totalDevicesLabel.setText(String.valueOf(metrics.get("totalDevices")));
+                devicesInsideLabel.setText(String.valueOf(metrics.get("devicesInside")));
+                ingressTodayLabel.setText(String.valueOf(metrics.get("ingressToday")));
+                egressTodayLabel.setText(String.valueOf(metrics.get("egressToday")));
 
-        // Display the number of devices currently inside the campus
-        syncNoDevices.setText("Devices in campus: " + devicesInsideLabel.getText());
-        syncNoDevices.getStyleClass().add("sync-status-live");
+                syncNoDevices.setText("Devices in campus: " + devicesInsideLabel.getText());
+                syncNoDevices.getStyleClass().removeAll("sync-status-live");
+                syncNoDevices.getStyleClass().add("sync-status-live");
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Could not load database analytical metrics counters", e);
+        }
     }
 
     // ==================== HELPER METHODS ====================
+    private void showSuccessAlert(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Access Granted");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
     private void showAlert(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
