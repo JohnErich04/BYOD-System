@@ -3,6 +3,7 @@ package com.example.dashboard;
 import javafx.application.Platform;
 import javafx.collections.FXCollections; // Added for explicit category array binding
 import javafx.event.ActionEvent;
+import com.example.Auth;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -244,9 +245,8 @@ public class DashboardController {
 
     @FXML
     private void handleLogout() {
-        Stage currentStage = (Stage) logoutButton.getScene().getWindow();
-        currentStage.close();
-        loadLoginScreen();
+        Platform.exit();
+        System.exit(0);
     }
 
     private void loadLoginScreen() {
@@ -270,7 +270,30 @@ public class DashboardController {
     @FXML private void handleDashboard() { handleRefresh(); }
     @FXML private void handleMonitoring() { navigateTo(MONITORING_FXML, "Monitoring - BYOD System"); }
     @FXML private void handleRegistration() { navigateTo(REGISTRATION_FXML, "Registration - BYOD System"); }
-    @FXML private void handleReports() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML
+    private void handleReports() {
+        if (Auth.reportUnlocked) {
+            navigateTo(REPORTS_FXML, "Reports - BYOD System");
+            return;
+        }
+        try {
+            FXMLLoader loginLoader = new FXMLLoader(getClass().getResource(LOGIN_FXML));
+            Parent loginRoot = loginLoader.load();
+            Stage loginStage = new Stage();
+            Scene loginScene = new Scene(loginRoot);
+            loginScene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
+            loginStage.setScene(loginScene);
+            loginStage.setTitle("Login Required - Reports Access");
+            loginStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            loginStage.showAndWait();
+
+            if (Auth.reportUnlocked) {
+                navigateTo(REPORTS_FXML, "Reports - BYOD System");
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Failed to open login popup", e);
+        }
+    }
     @FXML private void handleAccount() { navigateTo(ACCOUNT_FXML, "Account - BYOD System"); }
 
     private void navigateTo(String fxmlPath, String title) {

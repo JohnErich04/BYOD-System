@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import com.example.service.BYODService;
+import com.example.Auth;
+import javafx.stage.Modality;
 
 public class RegistrationController {
 
@@ -327,10 +329,32 @@ public class RegistrationController {
         navigateTo("/fxml/monitoring.fxml");
     }
 
-    @FXML private void handleLogout()       { navigateTo("/fxml/login.fxml"); }
+    @FXML private void handleLogout()       { javafx.application.Platform.exit(); System.exit(0); }
     @FXML private void handleDashboard()    { navigateTo("/fxml/dashboard.fxml"); }
     @FXML private void handleMonitoring()   { navigateTo("/fxml/monitoring.fxml"); }
-    @FXML private void handleReports()      { navigateTo("/fxml/reports.fxml"); }
+    @FXML
+    private void handleReports() {
+        if (Auth.reportUnlocked) {
+            navigateTo("/fxml/reports.fxml");
+            return;
+        }
+        try {
+            Parent loginRoot = FXMLLoader.load(getClass().getResource("/fxml/login.fxml"));
+            Stage loginStage = new Stage();
+            Scene loginScene = new Scene(loginRoot);
+            loginScene.getStylesheets().add(getClass().getResource("/css/stylesheet.css").toExternalForm());
+            loginStage.setScene(loginScene);
+            loginStage.setTitle("Login Required - Reports Access");
+            loginStage.initModality(Modality.APPLICATION_MODAL);
+            loginStage.showAndWait();
+
+            if (Auth.reportUnlocked) {
+                navigateTo("/fxml/reports.fxml");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     @FXML private void handleRegistration() { /* already here */ }
 
     private void navigateTo(String fxml) {

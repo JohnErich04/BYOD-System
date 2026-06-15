@@ -89,6 +89,9 @@ public class LoginController {
         // 2. Set the global status to true
         Auth.isLoggedIn = true;
 
+        // Unlock the Report Tab
+        Auth.reportUnlocked = true;
+
         // 3. Just close this window, do NOT call openDashboard()
         closeWindow();
     }

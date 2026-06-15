@@ -13,7 +13,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 import com.example.service.BYODService;
-
+import com.example.Auth;
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDate; // Added for live calendar tracking
@@ -356,13 +356,35 @@ public class MonitoringController implements Initializable {
     @FXML private void onDashboardClick() { navigateTo(DASHBOARD_FXML, "Dashboard - BYOD System"); }
     @FXML private void onMonitoringClick() { refreshMonitoringData(); }
     @FXML private void onRegistrationClick() { navigateTo(REGISTRATION_FXML, "Device Registration - BYOD System"); }
-    @FXML private void onReportsClick() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML
+    private void onReportsClick() {
+        if (Auth.reportUnlocked) {
+            navigateTo(REPORTS_FXML, "Reports - BYOD System");
+            return;
+        }
+        try {
+            FXMLLoader loginLoader = new FXMLLoader(getClass().getResource(LOGIN_FXML));
+            Parent loginRoot = loginLoader.load();
+            Stage loginStage = new Stage();
+            Scene loginScene = new Scene(loginRoot);
+            loginScene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
+            loginStage.setScene(loginScene);
+            loginStage.setTitle("Login Required - Reports Access");
+            loginStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            loginStage.showAndWait();
+
+            if (Auth.reportUnlocked) {
+                navigateTo(REPORTS_FXML, "Reports - BYOD System");
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Failed to open login popup", e);
+        }
+    }
     @FXML private void onAccountClick() { navigateTo(ACCOUNT_FXML, "Account Settings - BYOD System"); }
 
     @FXML private void onLogoutClick() {
-        Stage stage = (Stage) logoutButton.getScene().getWindow();
-        if (stage != null) stage.close();
-        loadLoginScreen();
+        Platform.exit();
+        System.exit(0);
     }
 
     private void loadLoginScreen() {

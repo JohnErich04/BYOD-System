@@ -317,11 +317,24 @@ public class ReportsController {
     @FXML private void handleBack()         { showView(View.MAIN); }
     @FXML private void handleSchedule()     { System.out.println("Processing schedule event trace maps..."); }
     @FXML private void handleRefresh()      { loadData(); }
-    @FXML private void handleLogout()       { navigateTo("/fxml/login.fxml"); }
-    @FXML private void handleDashboard()    { navigateTo("/fxml/dashboard.fxml"); }
-    @FXML private void handleMonitoring()   { navigateTo("/fxml/monitoring.fxml"); }
-    @FXML private void handleRegistration() { navigateTo("/fxml/registration.fxml"); }
+    @FXML private void handleLogout()       { confirmLeaveReports(() -> { Platform.exit(); System.exit(0); }); }
+    @FXML private void handleDashboard()    { confirmLeaveReports(() -> navigateTo("/fxml/dashboard.fxml")); }
+    @FXML private void handleMonitoring()   { confirmLeaveReports(() -> navigateTo("/fxml/monitoring.fxml")); }
+    @FXML private void handleRegistration() { confirmLeaveReports(() -> navigateTo("/fxml/registration.fxml")); }
     @FXML private void handleReports(ActionEvent e) { showView(View.MAIN); }
+
+    private void confirmLeaveReports(Runnable onProceed) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirm Navigation");
+        alert.setHeaderText(null);
+        alert.setContentText("Going back to the Reports Tab will require you to login again. Proceed?");
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                Auth.reportUnlocked = false;
+                onProceed.run();
+            }
+        });
+    }
 
     @FXML
     private void handleSelectAllToggle() {
