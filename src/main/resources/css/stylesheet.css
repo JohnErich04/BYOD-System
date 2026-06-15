@@ -966,6 +966,39 @@
 }
 .btn-yellow:hover { -fx-background-color: derive(-color-accent-border, -10%); }
 
+/* ── Save Device button states ───────────────────────────── */
+.btn-save-device {
+    -fx-background-color: -color-status-success;
+    -fx-text-fill: -color-bg-overlay;
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+    -fx-background-radius: 10px;
+    -fx-padding: 10px 20px;
+    -fx-cursor: hand;
+}
+.btn-save-device:hover { -fx-background-color: derive(-color-status-success, -10%); }
+
+.btn-disabled {
+    -fx-background-color: -color-border-default;
+    -fx-text-fill: derive(-color-fg-default, 40%);
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+    -fx-background-radius: 10px;
+    -fx-padding: 10px 20px;
+    -fx-cursor: default;
+}
+
+.btn-save {
+    -fx-background-color: -color-status-success;
+    -fx-text-fill: -color-bg-overlay;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-background-radius: 8px;
+    -fx-padding: 8 18;
+    -fx-cursor: hand;
+}
+.btn-save:hover { -fx-background-color: derive(-color-status-success, -10%); }
+
 /* ── Scroll bg ───────────────────────────────────────────── */
 .scroll-bg { -fx-background-color: -color-bg-default; -fx-border-color: transparent; }
 .scroll-bg > .viewport { -fx-background-color: -color-bg-default; }
