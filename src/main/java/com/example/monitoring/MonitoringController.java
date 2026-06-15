@@ -16,6 +16,8 @@ import com.example.service.BYODService;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalDate; // Added for live calendar tracking
+import java.time.format.DateTimeFormatter; // Added for calendar rendering format
 import java.util.ResourceBundle;
 import java.util.Map;
 import java.util.logging.Level;
@@ -49,7 +51,7 @@ public class MonitoringController implements Initializable {
     @FXML private TextField searchField;
     @FXML private Button allDeviceTypesButton;
     @FXML private Button allStatusButton;
-    @FXML private Button datePickerButton;
+    @FXML private Button datePickerButton; // The targeted node for modification
     @FXML private Button exportLogButton;
     @FXML private Button logEntryButton;
 
@@ -98,6 +100,12 @@ public class MonitoringController implements Initializable {
             loadInitialData();
             updateCardNumbers();
             updatePagination();
+
+            // FIX: Formats the Date Picker Button with the actual current system date
+            if (datePickerButton != null) {
+                String currentDateStr = DateTimeFormatter.ofPattern("MMMM d, yyyy").format(LocalDate.now());
+                datePickerButton.setText(currentDateStr);
+            }
 
             if (monitoringButton != null) {
                 monitoringButton.getStyleClass().add("active");
@@ -177,7 +185,6 @@ public class MonitoringController implements Initializable {
                     if (entry != null) onMarkIngress(entry);
                 });
 
-                // CHANGED: Clicking "Out" row item now boots the dynamic camera hardware modal loop window
                 egressButton.setOnAction(e -> {
                     LogEntry entry = getTableView().getItems().get(getIndex());
                     if (entry != null) {
@@ -349,40 +356,7 @@ public class MonitoringController implements Initializable {
     @FXML private void onDashboardClick() { navigateTo(DASHBOARD_FXML, "Dashboard - BYOD System"); }
     @FXML private void onMonitoringClick() { refreshMonitoringData(); }
     @FXML private void onRegistrationClick() { navigateTo(REGISTRATION_FXML, "Device Registration - BYOD System"); }
-    @FXML private void onReportsClick() { requireLoginThenOpenReports(); }
-
-    private void requireLoginThenOpenReports() {
-        com.example.dashboard.DashboardController.PendingAction action =
-                com.example.dashboard.DashboardController.PendingAction.REPORTS;
-        // Store the pending action so LoginController knows what to open after success
-        // We reuse DashboardController's static pending-action mechanism.
-        try {
-            java.lang.reflect.Field f = com.example.dashboard.DashboardController.class
-                    .getDeclaredField("pendingAction");
-            f.setAccessible(true);
-            f.set(null, action);
-        } catch (Exception ignored) {}
-
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(LOGIN_FXML));
-            Parent root = loader.load();
-            Scene scene = new Scene(root);
-            scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
-
-            // Tell LoginController which stage to replace with Reports on success
-            Stage currentStage = (Stage) reportsButton.getScene().getWindow();
-            com.example.login.LoginController.setTargetStage(currentStage);
-
-            Stage loginStage = new Stage();
-            loginStage.setScene(scene);
-            loginStage.setTitle("BYOD Monitoring System - Login Required");
-            loginStage.setResizable(false);
-            loginStage.centerOnScreen();
-            loginStage.show();
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to load login screen", e);
-        }
-    }
+    @FXML private void onReportsClick() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
     @FXML private void onAccountClick() { navigateTo(ACCOUNT_FXML, "Account Settings - BYOD System"); }
 
     @FXML private void onLogoutClick() {
@@ -409,9 +383,7 @@ public class MonitoringController implements Initializable {
         }
     }
 
-    // NEW / CHANGED: Click action bound to your dedicated layout scanner button
-    @FXML
-    private void onScanQREgressClick() {
+    @FXML private void onScanQREgressClick() {
         triggerQRCameraEgress();
     }
 
@@ -468,27 +440,18 @@ public class MonitoringController implements Initializable {
         }
     }
 
-    // NEW: Unified method that spawns the camera window to safely scan the QR code for egress
     private void triggerQRCameraEgress() {
         Stage currentStage = (Stage) monitoringTableView.getScene().getWindow();
 
         QRScannerWindow.openScanner(currentStage, qrPayload -> {
             try {
-                // Parse out the Student ID from your pipeline QR token string (e.g., "S2026-001|Dela Cruz|...")
                 String studentId = qrPayload;
                 if (qrPayload.contains("|")) {
                     studentId = qrPayload.split("\\|")[0];
                 }
-
-                // Process the change status right inside the database transaction logs
                 byodService.updateEgress(studentId);
-
-                // Visual notification banner showing text upon complete exit authorization
                 showSuccessAlert("QR Scanned! You can now exit the Campus.");
-
-                // Refresh dashboard summaries
                 refreshMonitoringData();
-
             } catch (Exception ex) {
                 showAlert("Scanner Database Error", "Failed to process scanned code:\n" + ex.getMessage());
             }

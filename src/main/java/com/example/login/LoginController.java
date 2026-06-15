@@ -1,35 +1,20 @@
 package com.example.login;
 
+import com.example.Auth; // 1. Import your bridge class
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
-
-import java.io.IOException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import javafx.scene.Scene;
 public class LoginController {
 
     private static final Logger LOGGER = Logger.getLogger(LoginController.class.getName());
     private static final String STYLESHEET_PATH = "/css/stylesheet.css";
-    private static final String REPORTS_FXML = "/fxml/reports.fxml";
 
-    // Hardcoded credentials – replace with real authentication
     private static final String VALID_USERNAME = "admin";
     private static final String VALID_PASSWORD = "password";
-
-    // The window whose content should be replaced with Reports on successful login
-    // (set by the caller, e.g. DashboardController, before showing the login screen).
-    private static Stage targetStage;
-
-    public static void setTargetStage(Stage stage) {
-        targetStage = stage;
-    }
 
     @FXML private ImageView logoImage;
     @FXML private Label appTitleLabel;
@@ -56,8 +41,6 @@ public class LoginController {
             if (!scene.getStylesheets().contains(css)) {
                 scene.getStylesheets().add(css);
             }
-        } else {
-            LOGGER.warning("Scene not available for stylesheet injection");
         }
     }
 
@@ -80,17 +63,10 @@ public class LoginController {
         String username = usernameField.getText().trim();
         String password = passwordField.getText();
 
-        if (username.isEmpty()) {
-            showError("Validation Error", "Invalid Input", "Please enter username.");
+        if (username.isEmpty() || password.isEmpty()) {
+            showError("Validation Error", "Invalid Input", "Please enter username and password.");
             usernameField.getStyleClass().add("error-field");
-            usernameField.requestFocus();
-            return;
-        }
-
-        if (password.isEmpty()) {
-            showError("Validation Error", "Invalid Input", "Please enter password.");
             passwordField.getStyleClass().add("error-field");
-            passwordField.requestFocus();
             return;
         }
 
@@ -98,7 +74,7 @@ public class LoginController {
             loginSuccess();
         } else {
             showError("Authentication Failed", "Login Error",
-                    "Invalid username or password. Please try again.");
+                    "Invalid username or password.");
         }
     }
 
@@ -110,67 +86,13 @@ public class LoginController {
         clearErrorStyles();
         LOGGER.info("Login successful for user: " + usernameField.getText());
 
-        Stage loginStage = (Stage) cancelButton.getScene().getWindow();
-        loginStage.close();
+        // 2. Set the global status to true
+        Auth.isLoggedIn = true;
 
-        openReports();
+        // 3. Just close this window, do NOT call openDashboard()
+        closeWindow();
     }
 
-    private void openReports() {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(REPORTS_FXML));
-            Parent root = loader.load();
-
-            String cssPath = getClass().getResource(STYLESHEET_PATH).toExternalForm();
-
-            Stage reportsStage;
-            if (targetStage != null) {
-                // Reuse the Dashboard's existing window instead of opening a new one.
-                reportsStage = targetStage;
-                Scene scene = reportsStage.getScene();
-                if (scene == null) {
-                    scene = new Scene(root);
-                    reportsStage.setScene(scene);
-                } else {
-                    scene.setRoot(root);
-                }
-                if (!scene.getStylesheets().contains(cssPath)) {
-                    scene.getStylesheets().add(cssPath);
-                }
-            } else {
-                reportsStage = new Stage();
-                Scene scene = new Scene(root);
-                scene.getStylesheets().add(cssPath);
-                reportsStage.setScene(scene);
-                reportsStage.setMaximized(false);
-                reportsStage.setResizable(true);
-            }
-
-            reportsStage.setTitle("BYOD Monitoring System - Reports");
-            reportsStage.centerOnScreen();
-
-            // If the user originally clicked "Export", trigger it once Reports is open.
-            if (com.example.dashboard.DashboardController.getPendingAction()
-                    == com.example.dashboard.DashboardController.PendingAction.EXPORT) {
-                Platform.runLater(() -> {
-                    Button exportAllBtn = (Button) root.lookup("#exportAllBtn");
-                    if (exportAllBtn != null) {
-                        exportAllBtn.fire();
-                    }
-                });
-            }
-            com.example.dashboard.DashboardController.clearPendingAction();
-            targetStage = null;
-
-            reportsStage.show();
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to load reports", e);
-            showError("Loading Error", "Failed to Load Reports",
-                    "Unable to load the reports view.\n\nDetails: " + e.getMessage());
-        }
-    }
-
-    // Standard error alert (replaces custom dialog)
     private void showError(String title, String header, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
@@ -188,8 +110,6 @@ public class LoginController {
     private void handleCancel() {
         usernameField.clear();
         passwordField.clear();
-        com.example.dashboard.DashboardController.clearPendingAction();
-        targetStage = null;
         closeWindow();
     }
 

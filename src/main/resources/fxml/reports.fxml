@@ -9,7 +9,6 @@
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -18,14 +17,13 @@
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane fx:id="rootPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1280.0" styleClass="background" stylesheets="@../css/stylesheet.css" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.reports.ReportsController">
-
-
 
   <top>
     <HBox alignment="CENTER" spacing="10" styleClass="navbar">
@@ -47,75 +45,80 @@
         <padding>
           <Insets left="10.0" right="10.0" />
         </padding></Button>
-      <Button onAction="#handleReports" prefHeight="50" styleClass="nav-button-active" text="Reports">
+      <Button fx:id="reportsButton" onAction="#handleReports" prefHeight="50" styleClass="nav-button-active" text="Reports">
         <padding>
           <Insets left="10.0" right="10.0" />
         </padding></Button>
       <Region HBox.hgrow="ALWAYS" />
-      <Button prefHeight="50" styleClass="account-button" text=" 👤 Admin Account " />
+      <Button onAction="#handleAdminAccount" prefHeight="50" styleClass="account-button" text=" 👤 Admin Account " />
+      <Button fx:id="logoutButton" onAction="#handleLogout" prefHeight="50" styleClass="logout-button" text=" 🚪 Logout ">
+        <HBox.margin><Insets right="60.0" /></HBox.margin>
+      </Button>
     </HBox>
   </top>
 
   <center>
     <StackPane fx:id="viewStack">
-      <VBox spacing="20">
-        <padding>
-          <Insets bottom="20.0" top="20.0" />
-        </padding>
 
-        <HBox alignment="CENTER_LEFT" spacing="12">
-          <VBox spacing="4" HBox.hgrow="ALWAYS">
-            <Label styleClass="title-2" text="Report &amp; records" />
-            <Label styleClass="description" text="Daily/monthly device monitoring reports · History of device entries and edits" />
-          </VBox>
-          <Button fx:id="scheduleBtn" onAction="#handleSchedule" styleClass="action-button" text="📅 Schedule" />
-          <Button fx:id="exportAllBtn" onAction="#handleExportAll" styleClass="btn-dark" text="⬇ Export all" />
-          <Button fx:id="logoutButton" onAction="#handleLogout" styleClass="action-button" text=" 🚪 Logout " />
-        </HBox>
+      <ScrollPane fx:id="mainView" fitToWidth="true" styleClass="scroll-bg">
+        <VBox spacing="20">
+          <padding>
+            <Insets bottom="20.0" top="20.0" />
+          </padding>
 
-        <HBox alignment="CENTER_LEFT" spacing="12">
-          <Label styleClass="card-title" text="Period:" />
-          <ComboBox fx:id="periodCombo" maxHeight="-Infinity" minHeight="-Infinity" prefWidth="200.0" styleClass="combo-box" />
-          <Region HBox.hgrow="ALWAYS" />
-          <Button onAction="#handleRefresh" styleClass="refresh-button" text="🔄 Refresh" />
-        </HBox>
+          <HBox alignment="CENTER_LEFT" spacing="12">
+            <VBox spacing="4" HBox.hgrow="ALWAYS">
+              <Label styleClass="title-2" text="Report &amp; records" />
+              <Label styleClass="description" text="Daily/monthly device monitoring reports · History of device entries and edits" />
+            </VBox>
+            <Button fx:id="scheduleBtn" onAction="#handleSchedule" styleClass="action-button" text="📅 Schedule" />
+            <Button fx:id="exportAllBtn" onAction="#handleExportAll" styleClass="btn-dark" text="⬇ Export all" />
+          </HBox>
 
-        <HBox spacing="16">
-          <VBox prefWidth="600.0" spacing="10" styleClass="card" HBox.hgrow="ALWAYS">
-            <Label fx:id="statTotalStudents" styleClass="card-number" text="2680" />
-            <Label styleClass="card-title" text="Total Registered Students" />
-            <Label styleClass="card-description" text="Active student BYOD profiles" />
-            <Button maxWidth="Infinity" onAction="#handleGenStudents" prefHeight="36" styleClass="btn-dark" text="Generate" />
-          </VBox>
-          <VBox prefWidth="600.0" spacing="10" styleClass="card">
-            <Label fx:id="statDeviceInventory" styleClass="card-number" text="256" />
-            <Label styleClass="card-title" text="Device inventory report" />
-            <Label styleClass="card-description" text="Device Summary by Type" wrapText="true" />
-            <Button maxWidth="Infinity" onAction="#handleGenInventory" prefHeight="36" styleClass="btn-dark" text="Generate" />
-          </VBox>
-          <VBox prefWidth="600.0" spacing="10" styleClass="card" HBox.hgrow="ALWAYS">
-            <Label fx:id="statFullExport" styleClass="card-number" text="2313" />
-            <Label styleClass="card-title" text="Full data export" />
-            <Label styleClass="card-description" text="Export Records (CSV/PDF)" wrapText="true" />
-            <Button maxWidth="Infinity" onAction="#handleGenExport" prefHeight="36" styleClass="btn-dark" text="Generate" />
-          </VBox>
-        </HBox>
+          <HBox alignment="CENTER_LEFT" spacing="12">
+            <Label styleClass="card-title" text="Period:" />
+            <ComboBox fx:id="periodCombo" maxHeight="-Infinity" minHeight="-Infinity" prefWidth="200.0" styleClass="combo-box" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button onAction="#handleRefresh" styleClass="refresh-button" text="🔄 Refresh" />
+          </HBox>
 
-        <VBox spacing="12" styleClass="card">
-          <Label fx:id="weeklyChartTitle" styleClass="chart-title" text="Ingress-egress by week · May 2026" />
-          <BarChart fx:id="weeklyChart" animated="false" maxHeight="280" prefHeight="280" styleClass="chart">
-            <xAxis>
-              <CategoryAxis side="BOTTOM" />
-            </xAxis>
-            <yAxis>
-              <NumberAxis side="LEFT" />
-            </yAxis>
-          </BarChart>
+          <HBox spacing="16">
+            <VBox prefWidth="600.0" spacing="10" styleClass="card" HBox.hgrow="ALWAYS">
+              <Label fx:id="statTotalStudents" styleClass="card-number" text="2680" />
+              <Label styleClass="card-title" text="Admin Controls" />
+              <Label styleClass="card-description" text="student BYOD profiles" />
+              <Button maxWidth="Infinity" onAction="#handleGenStudents" prefHeight="36" styleClass="btn-dark" text="Open Database" />
+            </VBox>
+            <VBox prefWidth="600.0" spacing="10" styleClass="card">
+              <Label fx:id="statDeviceInventory" styleClass="card-number" text="256" />
+              <Label styleClass="card-title" text="Device inventory report" />
+              <Label styleClass="card-description" text="Device Summary by Type" wrapText="true" />
+              <Button maxWidth="Infinity" onAction="#handleGenInventory" prefHeight="36" styleClass="btn-dark" text="Inventory" />
+            </VBox>
+            <VBox prefWidth="600.0" spacing="10" styleClass="card" HBox.hgrow="ALWAYS">
+              <Label fx:id="statFullExport" styleClass="card-number" text="2313" />
+              <Label styleClass="card-title" text="Full data export" />
+              <Label styleClass="card-description" text="Export Records (CSV/PDF)" wrapText="true" />
+              <Button maxWidth="Infinity" onAction="#handleGenExport" prefHeight="36" styleClass="btn-dark" text="Generate" />
+            </VBox>
+          </HBox>
+
+          <VBox spacing="12" styleClass="card">
+            <Label fx:id="weeklyChartTitle" styleClass="chart-title" text="Ingress-egress by week · May 2026" />
+            <BarChart fx:id="weeklyChart" animated="false" maxHeight="280" prefHeight="280" styleClass="chart">
+              <xAxis>
+                <CategoryAxis side="BOTTOM" animated="false" />
+              </xAxis>
+              <yAxis>
+                <NumberAxis side="LEFT" animated="false" />
+              </yAxis>
+            </BarChart>
+          </VBox>
         </VBox>
         <StackPane.margin>
           <Insets bottom="10.0" left="60.0" right="60.0" />
         </StackPane.margin>
-      </VBox>
+      </ScrollPane>
 
       <ScrollPane fx:id="exportView" fitToWidth="true" managed="false" styleClass="scroll-bg" visible="false">
         <VBox spacing="20">
@@ -135,7 +138,6 @@
           </VBox>
 
           <HBox spacing="20" VBox.vgrow="ALWAYS">
-
             <VBox minWidth="300" prefWidth="380" spacing="14" styleClass="card">
               <Label styleClass="chart-title" text="🔧  Export Parameters" />
               <Label styleClass="form-label-sm" text="Temporal Scope" />
@@ -201,8 +203,8 @@
           <HBox alignment="CENTER_LEFT" spacing="12">
             <Button onAction="#handleBack" prefHeight="40" styleClass="action-button" text="← Back" />
             <VBox spacing="4" HBox.hgrow="ALWAYS">
-              <Label styleClass="title-2" text="Report &amp; records" />
-              <Label styleClass="description" text="Daily/monthly device monitoring reports · History of device entries and edits" />
+              <Label styleClass="title-2" text="Device System Metrics" />
+              <Label styleClass="description" text="Hardware deployment distribution analytics across active university terms." />
             </VBox>
           </HBox>
 
@@ -210,29 +212,30 @@
             <VBox spacing="14" styleClass="card" HBox.hgrow="ALWAYS">
               <Label styleClass="card-title" text="Device Inventory Report" />
               <Label styleClass="card-description" text="Summary of all the registered devices per student. Categorized by type (laptop, tablet, phone, etc)." wrapText="true" />
+
               <VBox spacing="14" styleClass="card">
                 <Label styleClass="chart-title" text="Device Distribution" />
-                <Label fx:id="totalDevicesLabel" styleClass="description" text="Total: 2628 Devices" />
+                <Label fx:id="totalDevicesLabel" styleClass="description" text="Total: 0 Devices" />
                 <VBox spacing="10">
                   <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label prefWidth="110" styleClass="card-description" text="Laptops" />
                     <ProgressBar fx:id="laptopsBar" prefHeight="16" styleClass="prog-red" HBox.hgrow="ALWAYS" />
-                    <Label fx:id="laptopsPct" prefWidth="44" styleClass="card-description" text="56%" />
+                    <Label fx:id="laptopsPct" prefWidth="44" styleClass="card-description" text="0%" />
                   </HBox>
                   <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label prefWidth="110" styleClass="card-description" text="Tablets" />
                     <ProgressBar fx:id="tabletsBar" prefHeight="16" styleClass="prog-gold" HBox.hgrow="ALWAYS" />
-                    <Label fx:id="tabletsPct" prefWidth="44" styleClass="card-description" text="43%" />
+                    <Label fx:id="tabletsPct" prefWidth="44" styleClass="card-description" text="0%" />
                   </HBox>
                   <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label prefWidth="110" styleClass="card-description" text="Smartphones" />
                     <ProgressBar fx:id="smartphonesBar" prefHeight="16" styleClass="prog-pink" HBox.hgrow="ALWAYS" />
-                    <Label fx:id="smartphonesPct" prefWidth="44" styleClass="card-description" text="67%" />
+                    <Label fx:id="smartphonesPct" prefWidth="44" styleClass="card-description" text="0%" />
                   </HBox>
                   <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label prefWidth="110" styleClass="card-description" text="Others" />
                     <ProgressBar fx:id="othersBar" prefHeight="16" styleClass="prog-gray" HBox.hgrow="ALWAYS" />
-                    <Label fx:id="othersPct" prefWidth="44" styleClass="card-description" text="20%" />
+                    <Label fx:id="othersPct" prefWidth="44" styleClass="card-description" text="0%" />
                   </HBox>
                 </VBox>
               </VBox>
@@ -243,28 +246,28 @@
                 <Label styleClass="card-description" text="Laptops" />
                 <HBox alignment="CENTER_RIGHT" spacing="12">
                   <Label style="-fx-font-size:28;" text="💻" />
-                  <Label fx:id="laptopsCount" styleClass="card-number" text="985" />
+                  <Label fx:id="laptopsCount" styleClass="card-number" text="0" />
                 </HBox>
               </VBox>
               <VBox spacing="8" styleClass="mini-stat-card">
                 <Label styleClass="card-description" text="Tablets" />
                 <HBox alignment="CENTER_RIGHT" spacing="12">
                   <Label style="-fx-font-size:28;" text="📱" />
-                  <Label fx:id="tabletsCount" styleClass="card-number" text="667" />
+                  <Label fx:id="tabletsCount" styleClass="card-number" text="0" />
                 </HBox>
               </VBox>
               <VBox spacing="8" styleClass="mini-stat-card">
                 <Label styleClass="card-description" text="Smartphones" />
                 <HBox alignment="CENTER_RIGHT" spacing="12">
                   <Label style="-fx-font-size:28;" text="📲" />
-                  <Label fx:id="smartphonesCount" styleClass="card-number" text="667" />
+                  <Label fx:id="smartphonesCount" styleClass="card-number" text="0" />
                 </HBox>
               </VBox>
               <VBox spacing="8" styleClass="mini-stat-card">
                 <Label styleClass="card-description" text="Others" />
                 <HBox alignment="CENTER_RIGHT" spacing="12">
                   <Label style="-fx-font-size:28;" text="💡" />
-                  <Label fx:id="othersCount" styleClass="card-number" text="667" />
+                  <Label fx:id="othersCount" styleClass="card-number" text="0" />
                 </HBox>
               </VBox>
             </VBox>
@@ -279,38 +282,50 @@
           <HBox alignment="CENTER_LEFT" spacing="12">
             <Button onAction="#handleBack" prefHeight="40" styleClass="action-button" text="← Back" />
             <VBox spacing="4" HBox.hgrow="ALWAYS">
-              <Label styleClass="title-2" text="Report &amp; records" />
-              <Label styleClass="description" text="Daily/monthly device monitoring reports · History of device entries and edits" />
+              <Label styleClass="title-2" text="Admin Database Control" />
+              <Label styleClass="description" text="Direct Create, Update, and Delete access to registered student device logs." />
             </VBox>
           </HBox>
 
-          <VBox spacing="16" styleClass="card">
-            <Label styleClass="card-title" text="Registered Students" />
-            <Label styleClass="card-description" text="Displays all student devices currently detected inside the campus based on the latest ingress records." wrapText="true" />
-
-            <HBox spacing="12">
-              <VBox spacing="4" styleClass="mini-stat-card" HBox.hgrow="ALWAYS">
-                <Label styleClass="card-description" text="Total Students" />
-                <Label fx:id="panelTotalStudents" styleClass="card-number" text="2,523" />
+          <VBox spacing="14" styleClass="card">
+            <Label styleClass="chart-title" text="🛠  Data Modification Entry Form" />
+            <HBox alignment="BOTTOM_LEFT" spacing="12">
+              <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="form-label-sm" text="STUDENT ID" />
+                <TextField fx:id="studentIdField" promptText="e.g., 2024-00123" />
               </VBox>
-              <VBox spacing="4" styleClass="mini-stat-card" HBox.hgrow="ALWAYS">
-                <Label styleClass="card-description" text="New Students" />
-                <Label fx:id="panelNewStudents" styleClass="card-number" text="345" />
+              <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="form-label-sm" text="FULL NAME" />
+                <TextField fx:id="studentNameField" promptText="e.g., Juan Dela Cruz" />
               </VBox>
-              <VBox spacing="4" styleClass="mini-stat-card" HBox.hgrow="ALWAYS">
-                <Label styleClass="card-description" text="Active Devices" />
-                <Label fx:id="panelActiveDevices" styleClass="card-number" text="521" />
+              <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="form-label-sm" text="DEPARTMENT / COURSE" />
+                <TextField fx:id="departmentField" promptText="e.g., BSIT" />
               </VBox>
-              <VBox spacing="4" styleClass="mini-stat-card" HBox.hgrow="ALWAYS">
-                <Label styleClass="card-description" text="Total Students" />
-                <Label fx:id="panelTotalStudents2" styleClass="card-number" text="2,523" />
+              <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="form-label-sm" text="DEVICE TYPE" />
+                <TextField fx:id="deviceField" promptText="e.g., Laptop" />
+              </VBox>
+              <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="form-label-sm" text="SERIAL NUMBER" />
+                <TextField fx:id="serialField" promptText="e.g., SN-99812A" />
               </VBox>
             </HBox>
 
-            <TableView fx:id="studentsTable" prefHeight="340" VBox.vgrow="ALWAYS">
+            <HBox alignment="CENTER_RIGHT" spacing="12">
+              <Button onAction="#handleClearForm" styleClass="action-button" text="🧹 Clear Fields" />
+              <Button onAction="#handleInsertStudent" style="-fx-background-color: #62b86f; -fx-text-fill: white;" styleClass="btn-dark" text="➕ Insert Record" />
+              <Button onAction="#handleUpdateStudent" style="-fx-background-color: #e2a03f; -fx-text-fill: white;" styleClass="btn-dark" text="✏ Update Selected" />
+              <Button onAction="#handleDeleteStudent" style="-fx-background-color: #d9534f; -fx-text-fill: white;" styleClass="btn-dark" text="🗑 Delete Record" />
+            </HBox>
+          </VBox>
+
+          <VBox spacing="12" styleClass="card">
+            <Label styleClass="card-title" text="Active Live Records Database" />
+            <TableView fx:id="studentsTable" prefHeight="300" VBox.vgrow="ALWAYS">
               <columns>
-                <TableColumn fx:id="colName" prefWidth="200" text="Student Name" />
                 <TableColumn fx:id="colStudentId" prefWidth="130" text="Student ID" />
+                <TableColumn fx:id="colName" prefWidth="200" text="Student Name" />
                 <TableColumn fx:id="colDepartment" prefWidth="220" text="Department" />
                 <TableColumn fx:id="colDevice" prefWidth="160" text="Registered Devices" />
                 <TableColumn fx:id="colSerial" prefWidth="180" text="Device Serial Number" />

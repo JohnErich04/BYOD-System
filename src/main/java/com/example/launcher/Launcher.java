@@ -1,10 +1,11 @@
 package com.example.launcher;
 
-import com.example.dashboard.DashboardApp;
+import com.example.login.LoginApp;
 import javafx.application.Application;
 
 public class Launcher {
     public static void main(String[] args) {
-        Application.launch(DashboardApp.class, args);
+        // Launches LoginApp, which now opens the dashboard immediately!
+        Application.launch(LoginApp.class, args);
     }
 }

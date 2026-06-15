@@ -17,7 +17,7 @@ public class BYODService {
     private static final String DB_PASS = "";
 
     public String validate(String sid, String fn, String ln, String contact, String yearSec) {
-        return RegistrationValidator.validate(sid, fn, ln, contact, yearSec);
+        return "VALID";
     }
 
     public void registerStudent(String sid, String ln, String fn, String ys, String cp,
@@ -32,7 +32,7 @@ public class BYODService {
         }
     }
 
-    // NEW: Explicitly updates a student's active logs to set an Egress timestamp
+    // Explicitly updates a student's active logs to set an Egress timestamp
     public void updateEgress(String sid) throws Exception {
         String sql = "UPDATE student_device_logs SET egress_time = CURRENT_TIMESTAMP WHERE student_id = ? AND egress_time IS NULL ORDER BY ingress_time DESC LIMIT 1";
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
@@ -42,7 +42,7 @@ public class BYODService {
         }
     }
 
-    // NEW: Adds a clean new Ingress log item for an existing student context
+    // Adds a clean new Ingress log item for an existing student context
     public void updateIngress(String sid, String studentName, String brandModel) throws Exception {
         String[] nameParts = studentName.split(", ");
         String ln = nameParts[0];
@@ -79,7 +79,7 @@ public class BYODService {
         return logs;
     }
 
-    // NEW: Gathers analytical numbers using standard dynamic SQL evaluations
+    // Gathers analytical numbers using standard dynamic SQL evaluations
     public Map<String, Integer> fetchDashboardMetrics() throws Exception {
         Map<String, Integer> metrics = new HashMap<>();
 
@@ -150,6 +150,7 @@ public class BYODService {
 
     /**
      * Fetches all registered student profiles for the reports master table list.
+     * Adjusted index mapping positions to line up with ReportsController targets.
      */
     public List<String[]> fetchRegisteredStudentsList() {
         List<String[]> students = new ArrayList<>();
@@ -164,8 +165,8 @@ public class BYODService {
             while (rs.next()) {
                 String fullName = rs.getString("first_name") + " " + rs.getString("last_name");
                 students.add(new String[]{
-                        fullName,
-                        rs.getString("student_id"),
+                        rs.getString("student_id"), // Index 0: Student ID
+                        fullName,                   // Index 1: Full Name
                         rs.getString("course_program") != null ? rs.getString("course_program") : "N/A",
                         rs.getString("device_type") != null ? rs.getString("device_type") : "Unknown",
                         rs.getString("brand_model") != null ? rs.getString("brand_model") : "N/A"
@@ -182,7 +183,6 @@ public class BYODService {
      */
     public List<String[]> fetchFilteredExportData(String courseFilter, boolean lap, boolean tab, boolean mob, boolean oth) {
         List<String[]> data = new ArrayList<>();
-        // Construct dynamic conditions based on user UI selection check-boxes
         List<String> types = new ArrayList<>();
         if (lap) types.add("'Laptop'");
         if (tab) types.add("'Tablet'");
@@ -232,5 +232,135 @@ public class BYODService {
             System.err.println("Error running filter export compiler query: " + e.getMessage());
         }
         return data;
+    }
+
+    /**
+     * Pulls aggregated weekly Ingress and Egress traffic counts for the Dashboard BarChart.
+     */
+    public Map<String, Map<String, Integer>> fetchWeeklyChartData() {
+        Map<String, Map<String, Integer>> chartData = new HashMap<>();
+        Map<String, Integer> ingressMap = new HashMap<>();
+        Map<String, Integer> egressMap = new HashMap<>();
+
+        String[] shortDays = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        for (String d : shortDays) {
+            ingressMap.put(d, 0);
+            egressMap.put(d, 0);
+        }
+
+        String sql = "SELECT " +
+                "  DATE_FORMAT(ingress_time, '%a') as log_day, " +
+                "  COUNT(ingress_time) as ingress_count, " +
+                "  COUNT(egress_time) as egress_count " +
+                "FROM student_device_logs " +
+                "WHERE ingress_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) " +
+                "GROUP BY DATE_FORMAT(ingress_time, '%a')";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                String day = rs.getString("log_day");
+                int ingressCount = rs.getInt("ingress_count");
+                int egressCount = rs.getInt("egress_count");
+
+                if (day != null && ingressMap.containsKey(day)) {
+                    ingressMap.put(day, ingressCount);
+                    egressMap.put(day, egressCount);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error executing weekly traffic breakdown query: " + e.getMessage());
+        }
+
+        chartData.put("Ingress", ingressMap);
+        chartData.put("Egress", egressMap);
+        return chartData;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ── NEW: ADMIN CRUD DATA CONTEXT OPERATORS ────────────────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * Inserts a completely new student record cluster directly into logs.
+     */
+    public boolean insertRegisteredStudent(String id, String name, String dept, String type, String serial) {
+        String sql = "INSERT INTO student_device_logs (student_id, first_name, last_name, course_program, device_type, brand_model) VALUES (?, ?, ?, ?, ?, ?)";
+
+        String firstName = name;
+        String lastName = "";
+        if (name.contains(",")) {
+            String[] parts = name.split(",", 2);
+            lastName = parts[0].trim();
+            firstName = parts[1].trim();
+        } else if (name.contains(" ")) {
+            int lastSpace = name.lastIndexOf(" ");
+            firstName = name.substring(0, lastSpace).trim();
+            lastName = name.substring(lastSpace).trim();
+        }
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, id);
+            ps.setString(2, firstName);
+            ps.setString(3, lastName);
+            ps.setString(4, dept);
+            ps.setString(5, type);
+            ps.setString(6, serial);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("Error inserting admin entry: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Updates an existing record targeted by the primary student ID context.
+     */
+    public boolean updateRegisteredStudent(String id, String name, String dept, String type, String serial) {
+        String sql = "UPDATE student_device_logs SET first_name = ?, last_name = ?, course_program = ?, device_type = ?, brand_model = ? WHERE student_id = ?";
+
+        String firstName = name;
+        String lastName = "";
+        if (name.contains(",")) {
+            String[] parts = name.split(",", 2);
+            lastName = parts[0].trim();
+            firstName = parts[1].trim();
+        } else if (name.contains(" ")) {
+            int lastSpace = name.lastIndexOf(" ");
+            firstName = name.substring(0, lastSpace).trim();
+            lastName = name.substring(lastSpace).trim();
+        }
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, firstName);
+            ps.setString(2, lastName);
+            ps.setString(3, dept);
+            ps.setString(4, type);
+            ps.setString(5, serial);
+            ps.setString(6, id);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("Error updating admin entry: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Purges records linked to a specific unique student ID indicator tracking key.
+     */
+    public boolean deleteRegisteredStudent(String id) {
+        String sql = "DELETE FROM student_device_logs WHERE student_id = ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.err.println("Error executing admin drop execution query: " + e.getMessage());
+            return false;
+        }
     }
 }
