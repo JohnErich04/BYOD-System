@@ -41,7 +41,7 @@
                <Insets left="10.0" right="10.0" />
             </padding></Button>
       <Region HBox.hgrow="ALWAYS" />
-      <Button prefHeight="50" styleClass="account-button" text=" 👤 Admin Account ">
+      <Button fx:id="anchorButton" prefHeight="50" styleClass="account-button" text=" 👤 Admin Account ">
         <HBox.margin><Insets right="60.0" /></HBox.margin>
       </Button>
     </HBox>
@@ -111,7 +111,7 @@
             </VBox>
             <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="2">
               <Label styleClass="form-label-sm" text="Course / Program" />
-              <TextField fx:id="courseField" maxWidth="Infinity" />
+              <ComboBox fx:id="courseCombo" maxWidth="Infinity" VBox.vgrow="NEVER"/>
             </VBox>
             <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="2">
               <Label styleClass="form-label-sm" text="Contact number" />
@@ -203,9 +203,10 @@
           <Button fx:id="backBtn" managed="false" onAction="#handleBack" styleClass="action-button" text="← Back" visible="false" />
           <!-- Add Another Device: yellow, only on step 2 -->
           <Button fx:id="addAnotherDevBtn" managed="false" onAction="#handleAddAnotherDevice" styleClass="btn-yellow" text="+ Add Another Device" visible="false" />
+          <!-- Save Device: red, only on step 2, replaces auto-save on Next -->
+          <Button fx:id="saveDeviceBtn" managed="false" onAction="#handleSaveDevice" styleClass="btn-disabled" text="Save Device" visible="false" />
           <!-- Next Step: steps 1 and 2 -->
           <Button fx:id="nextStepBtn" managed="true" onAction="#handleNextStep" styleClass="btn-dark" text="Next Step" visible="true" />
-          <!-- Save + Cancel: step 3 only -->
           <Button fx:id="saveBtn" managed="false" onAction="#handleSave" styleClass="btn-dark" text="Save" visible="false" />
           <Button fx:id="cancelBtn" managed="false" onAction="#handleCancel" styleClass="action-button" text="Cancel" visible="false" />
         </HBox>
