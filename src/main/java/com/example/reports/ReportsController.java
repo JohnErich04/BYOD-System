@@ -484,15 +484,14 @@ public class ReportsController {
             return;
         }
         Stage stage = (Stage) logoutButton.getScene().getWindow();
-        stage.close();
+        navigateTo("/fxml/dashboard.fxml");
     }
     @FXML
     private void handleDashboard() {
         if (!confirmLeaveReports()) {
             return;
         }
-        Stage stage = (Stage) logoutButton.getScene().getWindow();
-        stage.close();
+        navigateTo("/fxml/dashboard.fxml");
     }
 
     @FXML
