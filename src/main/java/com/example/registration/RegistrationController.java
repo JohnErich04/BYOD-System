@@ -14,7 +14,7 @@ import com.example.service.BYODService;
 
 public class RegistrationController {
 
-    @FXML private Button logoutButton;
+    @FXML private Button anchorButton;
     @FXML private Label stepStudentInfo;
     @FXML private Label stepDeviceDetails;
     @FXML private Label stepReview;
@@ -311,7 +311,7 @@ public class RegistrationController {
             String qrPath = byodService.generateQR(payload, sid, System.getProperty("user.dir"));
 
             // HOOKED UP: Spawns the clean side-by-side aesthetic instructions + layout QR window
-            Stage activeStage = (Stage) logoutButton.getScene().getWindow();
+            Stage activeStage = (Stage) anchorButton.getScene().getWindow();
             com.example.monitoring.QRRegistrationSuccessWindow.show(activeStage, sid, qrPath);
 
             // Navigate back to tracking list dashboard logs automatically
@@ -327,16 +327,48 @@ public class RegistrationController {
         navigateTo("/fxml/monitoring.fxml");
     }
 
-    @FXML private void handleLogout()       { navigateTo("/fxml/login.fxml"); }
     @FXML private void handleDashboard()    { navigateTo("/fxml/dashboard.fxml"); }
     @FXML private void handleMonitoring()   { navigateTo("/fxml/monitoring.fxml"); }
-    @FXML private void handleReports()      { navigateTo("/fxml/reports.fxml"); }
+    @FXML private void handleReports()      { requireLoginThenOpenReports(); }
+
+    private void requireLoginThenOpenReports() {
+        // Reuse DashboardController's static pending-action so LoginController
+        // knows to open Reports (and fire Export if needed) after a successful login.
+        try {
+            java.lang.reflect.Field f = com.example.dashboard.DashboardController.class
+                    .getDeclaredField("pendingAction");
+            f.setAccessible(true);
+            f.set(null, com.example.dashboard.DashboardController.PendingAction.REPORTS);
+        } catch (Exception ignored) {}
+
+        try {
+            FXMLLoader loginLoader = new FXMLLoader(
+                    getClass().getResource("/fxml/login.fxml"));
+            Parent loginRoot = loginLoader.load();
+            Scene loginScene = new Scene(loginRoot);
+            loginScene.getStylesheets().add(
+                    getClass().getResource("/css/stylesheet.css").toExternalForm());
+
+            // Tell LoginController which stage to replace with Reports on success
+            Stage currentStage = (Stage) anchorButton.getScene().getWindow();
+            com.example.login.LoginController.setTargetStage(currentStage);
+
+            Stage loginStage = new Stage();
+            loginStage.setScene(loginScene);
+            loginStage.setTitle("BYOD Monitoring System - Login Required");
+            loginStage.setResizable(false);
+            loginStage.centerOnScreen();
+            loginStage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     @FXML private void handleRegistration() { /* already here */ }
 
     private void navigateTo(String fxml) {
         try {
             Parent root = FXMLLoader.load(getClass().getResource(fxml.toLowerCase()));
-            Stage stage = (Stage) logoutButton.getScene().getWindow();
+            Stage stage = (Stage) anchorButton.getScene().getWindow();
             Scene current = stage.getScene();
             current.getStylesheets().clear();
             current.getStylesheets().add(getClass().getResource("/css/stylesheet.css").toExternalForm());

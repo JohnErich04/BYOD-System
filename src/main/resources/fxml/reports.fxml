@@ -53,9 +53,6 @@
         </padding></Button>
       <Region HBox.hgrow="ALWAYS" />
       <Button prefHeight="50" styleClass="account-button" text=" 👤 Admin Account " />
-      <Button fx:id="logoutButton" onAction="#handleLogout" prefHeight="50" styleClass="logout-button" text=" 🚪 Logout ">
-        <HBox.margin><Insets right="60.0" /></HBox.margin>
-      </Button>
     </HBox>
   </top>
 
@@ -73,6 +70,7 @@
           </VBox>
           <Button fx:id="scheduleBtn" onAction="#handleSchedule" styleClass="action-button" text="📅 Schedule" />
           <Button fx:id="exportAllBtn" onAction="#handleExportAll" styleClass="btn-dark" text="⬇ Export all" />
+          <Button fx:id="logoutButton" onAction="#handleLogout" styleClass="action-button" text=" 🚪 Logout " />
         </HBox>
 
         <HBox alignment="CENTER_LEFT" spacing="12">

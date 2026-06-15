@@ -23,6 +23,14 @@ public class LoginController {
     private static final String VALID_USERNAME = "admin";
     private static final String VALID_PASSWORD = "password";
 
+    // The window whose content should be replaced with Reports on successful login
+    // (set by the caller, e.g. DashboardController, before showing the login screen).
+    private static Stage targetStage;
+
+    public static void setTargetStage(Stage stage) {
+        targetStage = stage;
+    }
+
     @FXML private ImageView logoImage;
     @FXML private Label appTitleLabel;
     @FXML private Label subtitleLabel;
@@ -113,15 +121,35 @@ public class LoginController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(REPORTS_FXML));
             Parent root = loader.load();
 
-            Stage reportsStage = new Stage();
-            reportsStage.setTitle("BYOD Monitoring System - Reports");
-            Scene scene = new Scene(root);
-            scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
-            reportsStage.setScene(scene);
-            reportsStage.centerOnScreen();
-            reportsStage.setMaximized(false);
-            reportsStage.setResizable(true);
+            String cssPath = getClass().getResource(STYLESHEET_PATH).toExternalForm();
 
+            Stage reportsStage;
+            if (targetStage != null) {
+                // Reuse the Dashboard's existing window instead of opening a new one.
+                reportsStage = targetStage;
+                Scene scene = reportsStage.getScene();
+                if (scene == null) {
+                    scene = new Scene(root);
+                    reportsStage.setScene(scene);
+                } else {
+                    scene.setRoot(root);
+                }
+                if (!scene.getStylesheets().contains(cssPath)) {
+                    scene.getStylesheets().add(cssPath);
+                }
+            } else {
+                reportsStage = new Stage();
+                Scene scene = new Scene(root);
+                scene.getStylesheets().add(cssPath);
+                reportsStage.setScene(scene);
+                reportsStage.setMaximized(false);
+                reportsStage.setResizable(true);
+            }
+
+            reportsStage.setTitle("BYOD Monitoring System - Reports");
+            reportsStage.centerOnScreen();
+
+            // If the user originally clicked "Export", trigger it once Reports is open.
             if (com.example.dashboard.DashboardController.getPendingAction()
                     == com.example.dashboard.DashboardController.PendingAction.EXPORT) {
                 Platform.runLater(() -> {
@@ -132,6 +160,7 @@ public class LoginController {
                 });
             }
             com.example.dashboard.DashboardController.clearPendingAction();
+            targetStage = null;
 
             reportsStage.show();
         } catch (IOException e) {
@@ -160,6 +189,7 @@ public class LoginController {
         usernameField.clear();
         passwordField.clear();
         com.example.dashboard.DashboardController.clearPendingAction();
+        targetStage = null;
         closeWindow();
     }
 

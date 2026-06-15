@@ -1,6 +1,5 @@
 package com.example.reports;
 
-import com.example.Auth;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
@@ -481,62 +480,54 @@ public class ReportsController {
     /* ── Navigation ─────────────────────────────────────── */
     @FXML
     private void handleLogout() {
-        isAdminLoggedIn = false; // Reset verification privileges
-        navigateTo("/fxml/login.fxml");
+        if (!confirmLeaveReports()) {
+            return;
+        }
+        Stage stage = (Stage) logoutButton.getScene().getWindow();
+        stage.close();
     }
-
     @FXML
     private void handleDashboard() {
-        // PUBLIC: Open view routing direct access
-        navigateTo("/fxml/dashboard.fxml");
+        if (!confirmLeaveReports()) {
+            return;
+        }
+        Stage stage = (Stage) logoutButton.getScene().getWindow();
+        stage.close();
     }
 
     @FXML
     private void handleMonitoring() {
-        // PUBLIC: Open view routing direct access
+        if (!confirmLeaveReports()) {
+            return;
+        }
         navigateTo("/fxml/monitoring.fxml");
     }
 
     @FXML
     private void handleRegistration() {
-        // PUBLIC: Open view routing direct access
+        if (!confirmLeaveReports()) {
+            return;
+        }
         navigateTo("/fxml/registration.fxml");
     }
 
-
     @FXML
     private void handleReports(ActionEvent event) {
-        System.out.println("1. Reports clicked. Auth is currently: " + Auth.isLoggedIn);
-
-        if (!Auth.isLoggedIn) {
-            System.out.println("2. Not logged in. Showing popup...");
-            showLoginPopup("reports");
-        }
-
-        System.out.println("3. Popup closed. Auth is now: " + Auth.isLoggedIn);
-
-        if (Auth.isLoggedIn) {
-            System.out.println("4. Access granted. Showing view.");
-            showView(View.MAIN);
-        } else {
-            System.out.println("4. Access denied. Still logged out.");
-        }
+        showView(View.MAIN);
     }
-    @FXML
-    private void handleAdminAccount(ActionEvent event) {
-        // 1. If not logged in, force the login popup
-        if (!Auth.isLoggedIn) {
-            showLoginPopup("adminAccount");
-        }
 
-        // 2. AFTER the popup closes, check the Auth status again
-        if (Auth.isLoggedIn) {
-            // Navigate to your specific admin file here
-            // If you don't have an admin_account.fxml, put your desired file name here
-            navigateTo("/fxml/some_admin_page.fxml");
-        } else {
-            System.out.println("Access denied: User did not log in.");
-        }
+    private boolean confirmLeaveReports() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Leave Reports");
+        alert.setHeaderText("You will be logged out of Reports");
+        alert.setContentText("Leaving this page will end your Reports session. "
+                + "You'll need to log in again to access Reports.\n\nProceed?");
+
+        ButtonType proceedButton = new ButtonType("Proceed");
+        ButtonType stayButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(proceedButton, stayButton);
+
+        return alert.showAndWait().filter(b -> b == proceedButton).isPresent();
     }
 
     private void navigateTo(String fxml) {

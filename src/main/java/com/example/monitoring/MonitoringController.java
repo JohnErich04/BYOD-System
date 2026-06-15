@@ -349,7 +349,40 @@ public class MonitoringController implements Initializable {
     @FXML private void onDashboardClick() { navigateTo(DASHBOARD_FXML, "Dashboard - BYOD System"); }
     @FXML private void onMonitoringClick() { refreshMonitoringData(); }
     @FXML private void onRegistrationClick() { navigateTo(REGISTRATION_FXML, "Device Registration - BYOD System"); }
-    @FXML private void onReportsClick() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML private void onReportsClick() { requireLoginThenOpenReports(); }
+
+    private void requireLoginThenOpenReports() {
+        com.example.dashboard.DashboardController.PendingAction action =
+                com.example.dashboard.DashboardController.PendingAction.REPORTS;
+        // Store the pending action so LoginController knows what to open after success
+        // We reuse DashboardController's static pending-action mechanism.
+        try {
+            java.lang.reflect.Field f = com.example.dashboard.DashboardController.class
+                    .getDeclaredField("pendingAction");
+            f.setAccessible(true);
+            f.set(null, action);
+        } catch (Exception ignored) {}
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(LOGIN_FXML));
+            Parent root = loader.load();
+            Scene scene = new Scene(root);
+            scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
+
+            // Tell LoginController which stage to replace with Reports on success
+            Stage currentStage = (Stage) reportsButton.getScene().getWindow();
+            com.example.login.LoginController.setTargetStage(currentStage);
+
+            Stage loginStage = new Stage();
+            loginStage.setScene(scene);
+            loginStage.setTitle("BYOD Monitoring System - Login Required");
+            loginStage.setResizable(false);
+            loginStage.centerOnScreen();
+            loginStage.show();
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load login screen", e);
+        }
+    }
     @FXML private void onAccountClick() { navigateTo(ACCOUNT_FXML, "Account Settings - BYOD System"); }
 
     @FXML private void onLogoutClick() {

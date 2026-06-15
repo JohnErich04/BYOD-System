@@ -48,8 +48,7 @@
                </padding>
             </Button>
             <Region fx:id="spacer" HBox.hgrow="ALWAYS" />
-            <Button fx:id="accountButton" contentDisplay="CENTER" mnemonicParsing="false" onAction="#handleAccount" prefHeight="50.0" styleClass="account-button" text=" 👤 Admin Account " textAlignment="CENTER" />
-            <Button fx:id="logoutButton" alignment="CENTER_RIGHT" contentDisplay="CENTER" mnemonicParsing="false" onAction="#handleLogout" prefHeight="50.0" styleClass="logout-button" text=" 🚪 Logout ">
+            <Button fx:id="accountButton" contentDisplay="CENTER" mnemonicParsing="false" onAction="#handleAccount" prefHeight="50.0" styleClass="account-button" text=" 👤 Admin Account " textAlignment="CENTER">
                <HBox.margin><Insets right="60.0" /></HBox.margin>
             </Button>
          </children>

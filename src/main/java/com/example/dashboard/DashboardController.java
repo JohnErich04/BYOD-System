@@ -30,10 +30,7 @@ public class DashboardController {
     private static final String REPORTS_FXML = "/fxml/reports.fxml";
     private static final String ACCOUNT_FXML = "/fxml/account.fxml";
 
-    private static final String SYNC_STATUS_LIVE = "Live";
-    private static final String SYNC_STATUS_OFFLINE = "Offline";
-    private static final String SYNC_STATUS_LOADING = "Loading";
-
+    // Pending action requested before login was required (e.g. open Reports)
     public enum PendingAction { NONE, REPORTS, EXPORT }
     private static PendingAction pendingAction = PendingAction.NONE;
 
@@ -44,6 +41,10 @@ public class DashboardController {
     public static void clearPendingAction() {
         pendingAction = PendingAction.NONE;
     }
+
+    private static final String SYNC_STATUS_LIVE = "Live";
+    private static final String SYNC_STATUS_OFFLINE = "Offline";
+    private static final String SYNC_STATUS_LOADING = "Loading";
 
     // Stats cards
     @FXML private Label totalStudentsLabel;
@@ -58,7 +59,6 @@ public class DashboardController {
 
     // Buttons
     @FXML private Button refreshButton;
-    @FXML private Button logoutButton;
     @FXML private Button dashboardButton;
     @FXML private Button monitoringButton;
     @FXML private Button registrationButton;
@@ -243,11 +243,6 @@ public class DashboardController {
         loadLiveDatabaseData();
     }
 
-    @FXML
-    private void handleLogout() {
-        handleRefresh();
-    }
-
     private void requireLoginThenOpen(PendingAction action) {
         pendingAction = action;
         try {
@@ -255,6 +250,11 @@ public class DashboardController {
             Parent root = loader.load();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
+
+            // Remember the Dashboard's own window so login can replace its content
+            // instead of opening Reports as a separate window.
+            Stage dashboardStage = (Stage) dateLabel.getScene().getWindow();
+            com.example.login.LoginController.setTargetStage(dashboardStage);
 
             Stage loginStage = new Stage();
             loginStage.setScene(scene);
@@ -367,6 +367,7 @@ public class DashboardController {
     private void handleExport() {
         requireLoginThenOpen(PendingAction.EXPORT);
     }
+
     // ==================== Standard Alert Helpers ====================
     private void showError(String title, String header, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
