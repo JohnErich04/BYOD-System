@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import com.example.service.BYODService;
+import com.example.service.RegistrationValidator;
 
 public class RegistrationController {
 
@@ -27,7 +28,7 @@ public class RegistrationController {
     @FXML private TextField firstNameField;
     @FXML private TextField studentIdField;
     @FXML private TextField yearSectionField;
-    @FXML private TextField courseField;
+    @FXML private ComboBox<String> courseCombo;
     @FXML private TextField contactField;
 
     @FXML private ComboBox<String> deviceTypeCombo;
@@ -49,6 +50,7 @@ public class RegistrationController {
 
     @FXML private Button backBtn;
     @FXML private Button addAnotherDevBtn;
+    @FXML private Button saveDeviceBtn;
     @FXML private Button nextStepBtn;
     @FXML private Button saveBtn;
     @FXML private Button cancelBtn;
@@ -69,12 +71,37 @@ public class RegistrationController {
     }
     private final List<DeviceEntry> savedDevices = new ArrayList<>();
 
+    private static final String[] COURSE_LIST = {
+            "Bachelor of Science in Electronics Engineering (BSECE)",
+            "Bachelor of Science in Business Administration Major in Human Resource Management (BSBA-HRM)",
+            "Bachelor of Science in Business Administration Major in Marketing Management (BSBA-MM)",
+            "Bachelor in Secondary Education Major in English (BSEd-English)",
+            "Bachelor in Secondary Education Major in Filipino (BSEd-Filipino)",
+            "Bachelor in Secondary Education Major in Mathematics (BSEd-Mathematics)",
+            "Bachelor of Science in Industrial Engineering (BSIE)",
+            "Bachelor of Science in Information Technology (BSIT)",
+            "Bachelor of Science in Psychology (BSPSY)",
+            "Bachelor in Technology And Livelihood Education Major in Home Economics (BTLEd-HE)",
+            "Bachelor of Science in Management Accounting (BSMA)"
+    };
+
     @FXML
     public void initialize() {
         if (formIdLabel != null)
             formIdLabel.setText("Form ID: BYOD-2026-" + String.format("%05d", (int)(Math.random()*99999)));
         if (deviceTypeCombo != null)
             deviceTypeCombo.getItems().addAll("Laptop", "Tablet", "Smartphone", "Desktop", "Other");
+        if (courseCombo != null)
+            courseCombo.getItems().addAll(COURSE_LIST);
+
+        // Live-update Save Device button state as the user fills in step 2 fields
+        if (deviceTypeCombo != null)
+            deviceTypeCombo.valueProperty().addListener((obs, o, n) -> updateSaveDeviceBtnState());
+        if (brandModelField != null)
+            brandModelField.textProperty().addListener((obs, o, n) -> updateSaveDeviceBtnState());
+        if (colorDescField != null)
+            colorDescField.textProperty().addListener((obs, o, n) -> updateSaveDeviceBtnState());
+
         showStep(1);
     }
 
@@ -86,10 +113,12 @@ public class RegistrationController {
 
         setBtn(backBtn,          step > 1);
         setBtn(addAnotherDevBtn, step == 2);
+        setBtn(saveDeviceBtn,    step == 2);
         setBtn(nextStepBtn,      step < TOTAL_STEPS);
         setBtn(saveBtn,          step == TOTAL_STEPS);
         setBtn(cancelBtn,        step == TOTAL_STEPS);
         updateDots(step);
+        if (step == 2) updateSaveDeviceBtnState();
     }
 
     private void setPanel(Pane p, boolean show) {
@@ -133,11 +162,26 @@ public class RegistrationController {
     }
 
     private boolean isStep1Valid() {
-        String lastName = lastNameField != null ? lastNameField.getText().trim() : "";
-        String firstName = firstNameField != null ? firstNameField.getText().trim() : "";
-        String studentId = studentIdField != null ? studentIdField.getText().trim() : "";
-        if (lastName.isEmpty() || firstName.isEmpty() || studentId.isEmpty()) {
-            showAlert("Missing Information", "Please fill in Last name, First name and Student ID.");
+        String lastName    = lastNameField   != null ? lastNameField.getText().trim()   : "";
+        String firstName   = firstNameField  != null ? firstNameField.getText().trim()  : "";
+        String studentId   = studentIdField  != null ? studentIdField.getText().trim()  : "";
+        String yearSection = yearSectionField!= null ? yearSectionField.getText().trim() : "";
+        String contact     = contactField    != null ? contactField.getText().trim()    : "";
+        String course      = courseCombo     != null ? courseCombo.getValue()           : null;
+
+        if (lastName.isEmpty() || firstName.isEmpty() || studentId.isEmpty()
+                || yearSection.isEmpty() || contact.isEmpty()) {
+            showAlert("Missing Information", "Please fill in all student information fields.");
+            return false;
+        }
+        if (course == null || course.isBlank()) {
+            showAlert("Missing Information", "Please select a Course / Program.");
+            return false;
+        }
+
+        String validation = RegistrationValidator.validate(studentId, firstName, lastName, contact, yearSection);
+        if (!validation.equals("VALID")) {
+            showAlert("Invalid Input", validation);
             return false;
         }
         return true;
@@ -151,6 +195,23 @@ public class RegistrationController {
         return true;
     }
 
+    /** True only if the current device-info inputs are complete (type required, brand & color filled). */
+    private boolean isDeviceInputComplete() {
+        String type  = deviceTypeCombo != null ? deviceTypeCombo.getValue() : null;
+        String brand = brandModelField != null ? brandModelField.getText().trim() : "";
+        String color = colorDescField  != null ? colorDescField.getText().trim()  : "";
+        return type != null && !type.isBlank() && !brand.isEmpty() && !color.isEmpty();
+    }
+
+    /** Updates the Save Device button's enabled state/color based on current input completeness. */
+    private void updateSaveDeviceBtnState() {
+        if (saveDeviceBtn == null) return;
+        boolean complete = isDeviceInputComplete();
+        saveDeviceBtn.setDisable(!complete);
+        saveDeviceBtn.getStyleClass().removeAll("btn-disabled", "btn-save-device");
+        saveDeviceBtn.getStyleClass().add(complete ? "btn-save-device" : "btn-disabled");
+    }
+
     @FXML
     private void handleBack() {
         if (currentStep > 1) showStep(currentStep - 1);
@@ -158,21 +219,36 @@ public class RegistrationController {
 
     @FXML
     private void handleAddAnotherDevice() {
-        String type  = deviceTypeCombo != null ? deviceTypeCombo.getValue() : null;
-        String brand = brandModelField  != null ? brandModelField.getText().trim()   : "";
-        String color = colorDescField   != null ? colorDescField.getText().trim()    : "";
-
-        if (type == null || type.isBlank()) {
-            showAlert("Missing Device Type", "Please select a device type before adding.");
+        // "Add Another Device" now simply reserves a fresh, empty slot for the next device.
+        // Saving is handled exclusively by handleSaveDevice().
+        if (!isDeviceInputComplete()) {
+            showAlert("Incomplete Device Info", "Please complete the current device's information before adding another.");
             return;
         }
+        handleSaveDevice();
+    }
+
+    /** Saves the current device info as a new entry. Only works if all fields are complete. */
+    @FXML
+    private void handleSaveDevice() {
+        if (!isDeviceInputComplete()) {
+            showAlert("Incomplete Device Info", "Please fill in Device type, Brand/model, and Color/description before saving.");
+            return;
+        }
+
+        String type  = deviceTypeCombo.getValue();
+        String brand = brandModelField.getText().trim();
+        String color = colorDescField.getText().trim();
+
         savedDevices.add(new DeviceEntry(type, brand, color));
         refreshSavedDevicesUI();
 
-        if (deviceTypeCombo != null) deviceTypeCombo.setValue(null);
-        if (brandModelField  != null) brandModelField.clear();
-        if (colorDescField   != null) colorDescField.clear();
-        if (deviceTypeCombo  != null) deviceTypeCombo.requestFocus();
+        deviceTypeCombo.setValue(null);
+        brandModelField.clear();
+        colorDescField.clear();
+        deviceTypeCombo.requestFocus();
+
+        updateSaveDeviceBtnState();
     }
 
     private void refreshSavedDevicesUI() {
@@ -220,13 +296,8 @@ public class RegistrationController {
             step1Completed = true;
             showStep(2);
         } else if (currentStep == 2) {
-            String type  = deviceTypeCombo != null ? deviceTypeCombo.getValue() : null;
-            String brand = brandModelField  != null ? brandModelField.getText().trim()   : "";
-            String color = colorDescField   != null ? colorDescField.getText().trim()    : "";
-            if (type != null && !type.isBlank()) {
-                savedDevices.add(new DeviceEntry(type, brand, color));
-                refreshSavedDevicesUI();
-            }
+            // No auto-save here anymore — device(s) must already be saved via "Save Device".
+            // This prevents creating duplicate entries when navigating back and forth.
             if (!isStep2Valid()) return;
             step2Completed = true;
             populateReview();
@@ -239,8 +310,12 @@ public class RegistrationController {
         set(reviewFirstName,   firstNameField);
         set(reviewStudentId,   studentIdField);
         set(reviewYearSection, yearSectionField);
-        set(reviewCourse,      courseField);
         set(reviewContact,     contactField);
+
+        if (reviewCourse != null) {
+            String course = courseCombo != null ? courseCombo.getValue() : null;
+            reviewCourse.setText(course == null || course.isBlank() ? "-" : course);
+        }
 
         if (reviewDevicesTitle != null)
             reviewDevicesTitle.setText("Registered Devices (" + savedDevices.size() + ")");
@@ -282,6 +357,7 @@ public class RegistrationController {
     @FXML
     private void handleSave() {
         String sid = studentIdField.getText().trim();
+        String course = courseCombo != null && courseCombo.getValue() != null ? courseCombo.getValue() : "";
         String validation = byodService.validate(sid, firstNameField.getText().trim(),
                 lastNameField.getText().trim(), contactField.getText().trim(),
                 yearSectionField.getText().trim());
@@ -298,7 +374,7 @@ public class RegistrationController {
                         lastNameField.getText().trim(),
                         firstNameField.getText().trim(),
                         yearSectionField.getText().trim(),
-                        courseField.getText().trim(),
+                        course,
                         contactField.getText().trim(),
                         d.type,
                         d.brand,
@@ -307,7 +383,7 @@ public class RegistrationController {
             }
 
             String payload = String.join("|", sid, lastNameField.getText(), firstNameField.getText(),
-                    yearSectionField.getText(), courseField.getText(), contactField.getText());
+                    yearSectionField.getText(), course, contactField.getText());
             String qrPath = byodService.generateQR(payload, sid, System.getProperty("user.dir"));
 
             // HOOKED UP: Spawns the clean side-by-side aesthetic instructions + layout QR window
