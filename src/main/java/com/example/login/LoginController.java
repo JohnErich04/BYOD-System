@@ -17,7 +17,7 @@ public class LoginController {
 
     private static final Logger LOGGER = Logger.getLogger(LoginController.class.getName());
     private static final String STYLESHEET_PATH = "/css/stylesheet.css";
-    private static final String DASHBOARD_FXML = "/fxml/dashboard.fxml";
+    private static final String REPORTS_FXML = "/fxml/reports.fxml";
 
     // Hardcoded credentials – replace with real authentication
     private static final String VALID_USERNAME = "admin";
@@ -105,28 +105,39 @@ public class LoginController {
         Stage loginStage = (Stage) cancelButton.getScene().getWindow();
         loginStage.close();
 
-        openDashboard();
+        openReports();
     }
 
-    private void openDashboard() {
+    private void openReports() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(DASHBOARD_FXML));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(REPORTS_FXML));
             Parent root = loader.load();
 
-            Stage dashboardStage = new Stage();
-            dashboardStage.setTitle("BYOD Monitoring System - Dashboard");
+            Stage reportsStage = new Stage();
+            reportsStage.setTitle("BYOD Monitoring System - Reports");
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
-            dashboardStage.setScene(scene);
-            dashboardStage.centerOnScreen();
-            dashboardStage.setMaximized(false);
-            dashboardStage.setResizable(true);
+            reportsStage.setScene(scene);
+            reportsStage.centerOnScreen();
+            reportsStage.setMaximized(false);
+            reportsStage.setResizable(true);
 
-            dashboardStage.show();
+            if (com.example.dashboard.DashboardController.getPendingAction()
+                    == com.example.dashboard.DashboardController.PendingAction.EXPORT) {
+                Platform.runLater(() -> {
+                    Button exportAllBtn = (Button) root.lookup("#exportAllBtn");
+                    if (exportAllBtn != null) {
+                        exportAllBtn.fire();
+                    }
+                });
+            }
+            com.example.dashboard.DashboardController.clearPendingAction();
+
+            reportsStage.show();
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to load dashboard", e);
-            showError("Loading Error", "Failed to Load Dashboard",
-                    "Unable to load the main dashboard.\n\nDetails: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to load reports", e);
+            showError("Loading Error", "Failed to Load Reports",
+                    "Unable to load the reports view.\n\nDetails: " + e.getMessage());
         }
     }
 
@@ -148,6 +159,7 @@ public class LoginController {
     private void handleCancel() {
         usernameField.clear();
         passwordField.clear();
+        com.example.dashboard.DashboardController.clearPendingAction();
         closeWindow();
     }
 

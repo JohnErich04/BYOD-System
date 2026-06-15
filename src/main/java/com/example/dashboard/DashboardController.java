@@ -34,6 +34,17 @@ public class DashboardController {
     private static final String SYNC_STATUS_OFFLINE = "Offline";
     private static final String SYNC_STATUS_LOADING = "Loading";
 
+    public enum PendingAction { NONE, REPORTS, EXPORT }
+    private static PendingAction pendingAction = PendingAction.NONE;
+
+    public static PendingAction getPendingAction() {
+        return pendingAction;
+    }
+
+    public static void clearPendingAction() {
+        pendingAction = PendingAction.NONE;
+    }
+
     // Stats cards
     @FXML private Label totalStudentsLabel;
     @FXML private Label totalDevicesLabel;
@@ -234,12 +245,11 @@ public class DashboardController {
 
     @FXML
     private void handleLogout() {
-        Stage currentStage = (Stage) logoutButton.getScene().getWindow();
-        currentStage.close();
-        loadLoginScreen();
+        handleRefresh();
     }
 
-    private void loadLoginScreen() {
+    private void requireLoginThenOpen(PendingAction action) {
+        pendingAction = action;
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(LOGIN_FXML));
             Parent root = loader.load();
@@ -248,7 +258,7 @@ public class DashboardController {
 
             Stage loginStage = new Stage();
             loginStage.setScene(scene);
-            loginStage.setTitle("BYOD Monitoring System - Login");
+            loginStage.setTitle("BYOD Monitoring System - Login Required");
             loginStage.setResizable(false);
             loginStage.centerOnScreen();
             loginStage.show();
@@ -261,7 +271,7 @@ public class DashboardController {
     @FXML private void handleDashboard() { handleRefresh(); }
     @FXML private void handleMonitoring() { navigateTo(MONITORING_FXML, "Monitoring - BYOD System"); }
     @FXML private void handleRegistration() { navigateTo(REGISTRATION_FXML, "Registration - BYOD System"); }
-    @FXML private void handleReports() { navigateTo(REPORTS_FXML, "Reports - BYOD System"); }
+    @FXML private void handleReports() { requireLoginThenOpen(PendingAction.REPORTS); }
     @FXML private void handleAccount() { navigateTo(ACCOUNT_FXML, "Account - BYOD System"); }
 
     private void navigateTo(String fxmlPath, String title) {
@@ -355,30 +365,8 @@ public class DashboardController {
 
     @FXML
     private void handleExport() {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(REPORTS_FXML));
-            Parent root = loader.load();
-
-            Stage stage = (Stage) dateLabel.getScene().getWindow();
-            Scene scene = new Scene(root);
-            scene.getStylesheets().add(getClass().getResource(STYLESHEET_PATH).toExternalForm());
-            stage.setScene(scene);
-            stage.setTitle("Reports - BYOD System");
-            stage.centerOnScreen();
-
-            Platform.runLater(() -> {
-                Button exportAllBtn = (Button) root.lookup("#exportAllBtn");
-                if (exportAllBtn != null) {
-                    exportAllBtn.fire();
-                }
-            });
-
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to load reports view", e);
-            showError("Navigation Error", "Could not open Reports section", e.getMessage());
-        }
+        requireLoginThenOpen(PendingAction.EXPORT);
     }
-
     // ==================== Standard Alert Helpers ====================
     private void showError(String title, String header, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
