@@ -1,16 +1,14 @@
-target/
+# Ignore compiled Java classes and build artifacts
+target/**/*.class
+target/maven-archiver/
+target/maven-status/
+
+# Allow Git to look into your specific fxml folder
+!target/classes/fxml/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
-# Allow Git to look into the fxml folder structure
-!target/classes/fxml/
-
-# Ignore everything inside that folder by default
-target/classes/fxml/*
-
-# Make an exception ONLY for files ending in .fxml
-!target/classes/fxml/*.fxml
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
