@@ -3,6 +3,14 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
+# Allow Git to look into the fxml folder structure
+!target/classes/fxml/
+
+# Ignore everything inside that folder by default
+target/classes/fxml/*
+
+# Make an exception ONLY for files ending in .fxml
+!target/classes/fxml/*.fxml
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
